@@ -1,0 +1,63 @@
+<tr data-status="{{getStatus(item.online)}}">
+    <td class="td-tight">
+        <span class="icon-status"></span>
+        <td>
+            <a href="#">{{item.appId}}</a>
+        </td>
+
+        <td>
+            <span class="tag tag-status tag-big"></span>
+        </td>
+
+        <td class="percentage">{{item.insights.status.last24Hours.uptime}}</td>
+        <td class="percentage">{{item.insights.status.lastWeek.uptime}}</td>
+        <td>{{item.insights.status.lastWeek.downtime}}</td>
+        <td>{{item.insights.status.lastWeek.numberOutages}}</td>
+
+        <td class="dropdown-container td-center">
+            <button class="btn btn-icon dropdown-toggle" role="button">
+                <span class="icon-more"></span>
+            </button>
+            <nav class="dropdown-menu dm-overlay dm-white">
+                <ul>
+                    <li class="container-icon">
+                        <a href="#">
+                            <span class="icon-delete"></span>Delete</a>
+                    </li>
+                    <li class="container-icon">
+                        <a href="#">
+                            <span class="icon-edit"></span>Edit</a>
+                    </li>
+                    <li class="container-icon">
+                        <a href="#">
+                            <span class="icon-pause"></span>Pause Monitor</a>
+                    </li>
+                </ul>
+            </nav>
+        </td>
+</tr>
+
+<script>
+    export default {
+        helpers: {
+            getStatus(online) {
+                return online ? 'online' : 'offline';
+            }
+        },
+        computed: {
+            status: online => online ? 'online' : 'offline'
+        },
+        data() {
+            return {
+                item: {
+                    status: 'online',
+                    appId: 'HotDesk',
+                    last24Hours: 99.99,
+                    lastWeek: 88.99,
+                    downtime: 12000,
+                    outages: 3
+                }
+            }
+        }
+    }
+</script>

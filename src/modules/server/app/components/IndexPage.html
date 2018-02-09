@@ -1,0 +1,78 @@
+<main>
+
+    <header class="row">
+        <h1 class="title">Applications</h1>
+        <button on:click="addApplication()" class="btn btn-info" role="button">
+            <span class="icon-plus" aria-hidden="true"></span>
+            <span>Add Application</span>
+        </button>
+    </header>
+
+
+    <div class="layout-w">
+        <ul class="tab-menu">
+            <li class="active">
+                <a href="#applications-all" title="All">All</a>
+            </li>
+            <li>
+                <a href="#application-online" title="Online(4)">Online({{online}})</a>
+            </li>
+            <li>
+                <a href="#application-offline" title="Offline(1)">Offline({{offline}})</a>
+            </li>
+        </ul>
+
+        <table class="table-rows-white">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>Status</th>
+                    <th>Last 24 hours</th>
+                    <th>Last Week</th>
+                    <th>Down<wbr>time</th>
+                    <th>Out<wbr>ages</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#await applications}}
+                <p>wait for it...</p>
+                {{then response}} {{#each response as value}}
+                <Item item='{{value}}' /> {{/each}} {{catch error}}
+                <p>well that's odd</p>
+                {{/await}}
+            </tbody>
+        </table>
+    </div>
+</main>
+
+
+<script>
+    import Item from './ApplicationListItem.html';
+
+    export default {
+        methods: {
+            addApplication() {
+                console.log('message')
+            }
+        },
+        helpers: {
+            onlineApps: function () {
+
+            },
+            offlineApps: function () {
+
+            }
+        },
+        components: {
+            Item: Item
+        },
+        data() {
+            return {
+                online: 3,
+                offline: 2
+            }
+        }
+    }
+</script>

@@ -1,0 +1,22 @@
+{{#await applications}}
+  <p>wait for it...</p>
+{{then response}}
+    {{#if response}}
+    {{#each response.value as value}}
+        <h2>{{value.appId}}!</h2>
+        <p>{{value.online ? 'online' : 'offline'}}</p>
+    {{/each}}
+    {{/if}}
+{{catch error}}
+  <p>well that's odd</p>
+{{/await}}
+
+
+<script>
+    export default {
+
+        data(){
+            return {}
+        }
+    }
+</script>
