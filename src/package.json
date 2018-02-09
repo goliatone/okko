@@ -1,0 +1,64 @@
+{
+  "name": "core.io-registry",
+  "version": "0.0.0",
+  "description": "core.io application registry",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test",
+    "start": "node index.js",
+    "client:serve": "NODE_ENV=development npm run client:watch",
+    "client:build": "rollup -c",
+    "client:watch": "npm run client:build -- -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goliatone/core.io-registry.git"
+  },
+  "keywords": [],
+  "author": "goliatone <>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/goliatone/core.io-registry/issues"
+  },
+  "homepage": "https://github.com/goliatone/core.io-registry#readme",
+  "dependencies": {
+    "application-core": "*",
+    "base-cli-commands": "0.0.7",
+    "concat-stream": "^1.6.0",
+    "core.io-data-manager": "*",
+    "core.io-express-auth": "*",
+    "core.io-express-server": "*",
+    "core.io-filesync": "*",
+    "core.io-persistence": "*",
+    "core.io-pubsub-mqtt": "0.0.8",
+    "gkeypath": "^0.7.0",
+    "history": "^4.7.2",
+    "mqtt": "^2.15.1",
+    "read-pkg-up": "^3.0.0",
+    "redis": "^2.8.0",
+    "route-parser": "0.0.5",
+    "sails-disk": "*",
+    "sails-redis": "^0.10.7",
+    "stream-spigot": "^3.0.6",
+    "timestream-aggregates": "^0.1.7",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "bogota": "^2.0.4",
+    "nyc": "^10.3.2",
+    "rollup": "^0.54.0",
+    "rollup-plugin-bundleutils": "^1.0.3",
+    "rollup-plugin-commonjs": "^8.3.0",
+    "rollup-plugin-livereload": "^0.6.0",
+    "rollup-plugin-node-resolve": "^3.0.2",
+    "rollup-plugin-replace": "^2.0.0",
+    "rollup-plugin-serve": "^0.4.2",
+    "rollup-plugin-svelte": "^4.0.0",
+    "sinon": "^2.2.0",
+    "svelte": "^1.51.1",
+    "tap-spec": "^4.1.1",
+    "tape": "^4.6.3",
+    "tape-catch": "^1.0.6",
+    "watch": "^1.0.2"
+  }
+}
