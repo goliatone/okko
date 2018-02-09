@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+'use strict';
+
+const CliApp = require('base-cli-commands').CliApp;
+const Application = require('application-core').Application;
+
+const config = Application.loadConfig({
+    logger: {
+        muteLogger: true
+    },
+    app: {
+        banner: false,
+        coremodules: [
+            './logger',
+            './dispatcher'
+        ],
+        loadModulesOptions: {
+            only: [
+                'persistence'
+            ]
+        }
+    },
+    globOptions: {
+        matchPatterh: '+(app.js)',
+        ignorePattern: 'index.js'
+    }
+}, true);
+
+
+config.app.banner = false;
+
+const app = new Application({config});
+
+app.once('modules.ready', () => {
+    app.run();
+    const cli = new CliApp({
+        context: app,
+        commands: require('./cli-commands'),
+        package: require('../package.json')
+    });
+
+    cli.run(process.argv);
+});
