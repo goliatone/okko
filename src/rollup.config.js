@@ -22,7 +22,7 @@ export default {
 
 						// You can restrict which files are compiled
 						// using `include` and `exclude`
-						include: './modules/server/app/components/**.html'
+						include: './modules/server/app/**/*.html'
 				}),
 				nodeResolve({
 						jsnext: true,
