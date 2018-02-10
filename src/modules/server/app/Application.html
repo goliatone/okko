@@ -1,0 +1,48 @@
+<Header/>
+    <main id="content">
+        <!-- <Home /> -->
+    </main>
+
+<Footer/>
+
+<script>
+    import createRouter from './services/createRouter.js';
+    import api from './services/api';
+    
+    import Link from './components/Link.html';
+    import Footer from './components/Footer.html';
+    import Header from './components/Header.html';
+
+    import Home from './pages/Home.html';
+    import ApplicationView from './pages/ApplicationView.html';
+    import ApplicationAdd from './pages/ApplicationAdd.html';
+    import ApplicationEdit from './pages/ApplicationEdit.html';
+
+    const router = createRouter({
+        '/': Home,
+        '/application/add': ApplicationAdd,
+        '/application/:appid/edit': ApplicationEdit,
+        '/application/:appid': ApplicationView,
+    });
+
+    window.router = router;
+    window.api = api;
+
+    export default {
+        oncreate() {
+            router.start(location, document.querySelector('#content'));
+        },
+        ondestroy() {
+            router.teardown();
+        },
+        components: {
+            Home,
+            ApplicationView,
+            ApplicationEdit,
+
+            Footer,
+            Header,
+            Link
+        }
+    };
+</script>
