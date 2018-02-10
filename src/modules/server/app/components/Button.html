@@ -1,0 +1,39 @@
+<button on:click="navigate(event, to)" class="btn btn-info" role="button">
+    <span class="{{icon(type)}}" aria-hidden="true"></span>
+    <span>{{text}}</span>
+</button>
+
+<script>
+    import history from '../services/history';
+
+    export default {
+        data() {
+            return {
+                text: '',
+                to: '/',
+            };
+        },
+        helpers: {
+            icon: function (type) {
+                switch (type) {
+                    case 'add':
+                        return 'icon-plus';
+                        break;
+                    case 'edit':
+                        return 'icon-edit-white';
+                        break;
+                }
+            }
+        },
+        methods: {
+            navigate(evt, path) {
+                if (evt && evt.preventDefault) {
+                    evt.preventDefault();
+                }
+                if (path) {
+                    history.push(path);
+                }
+            }
+        }
+    };
+</script>
