@@ -1,24 +1,93 @@
-const api = {
-    login() {
-        return { name: 'josh', email: 'josh@gmail.com', token: 'abcde' };
-    },
-    getDoctors() {
-        return new Promise(function(resolve, reject) {
-            fetch('http://localhost:3001/doctors/', {
-                method: 'get'
-            })
-                .then(function(response) {
-                    response.json().then(function(data) {
-                        console.log('success fetching', data);
-                        resolve(data.Doctors);
-                    });
-                })
-                .catch(function(err) {
-                    console.log('error fetching', err);
-                    reject(err);
-                });
-        });
-    }
-};
+'use strict';
+const cache = {};
+cache.applications = {};
+cache.services = {};
+cache.insights = {};
 
-export default api;
+function getApplication(id) {
+    return fetch('/api/application/' + id)
+        .then(res => {
+            return res.json();
+        })
+        .then(json => {
+            cache.applications[json.value.id] = json.value;
+            return json.value;
+        });
+}
+
+function getApplications() {
+    return fetch('/api/applications')
+        .then(res => {
+            return res.json();
+        })
+        .then(json => {
+            
+            json.value.map(app => {
+                console.log('id', app.id);
+                cache.applications[app.id] = app;
+            });
+
+            return json;
+        });
+}
+
+function getServices() {
+    return fetch('/api/services').then(res => {
+        return res.json();
+    })
+    .then(json =>{
+        
+        json.value.map(service => {
+            cache.services[service.id] = service;
+        });
+
+        return json;
+    });
+}
+
+function getInsights() {
+    return fetch('/api/insights').then(res => {
+        return res.json();
+    });
+}
+
+function buildApplicationInsights() {
+    let data = [];
+    let services = getServices();
+    let applications = getApplications();
+    let insights = getInsights();
+
+    return new Promise((resolve, reject) => {
+        Promise.all([services, applications, insights]).then(
+            ([services, applications, insights]) => {
+                services = services.value;
+                applications = applications.value;
+                insights = insights.value;
+
+                services.map(service => {
+                    applications.map(application => {
+                        if (application.id === service.application) {
+                            application.service = service;
+                        }
+                        insights.map(insight => {
+                            if (insight.service.id === service.id) {
+                                application.insights = insight;
+                            }
+                        });
+                    });
+                });
+
+                resolve(applications);
+            }
+        );
+    });
+}
+
+export default {
+    cache,
+    getInsights,
+    getApplication,
+    getApplications,
+    getServices,
+    buildApplicationInsights
+};
