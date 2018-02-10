@@ -1,44 +1,70 @@
 <tr data-status="{{getStatus(item.online)}}">
     <td class="td-tight">
         <span class="icon-status"></span>
-        <td>
-            <a href="#">{{item.appId}}</a>
-        </td>
+    </td>
+    <td>
+        <Link to="/application/{{item.id}}" text="{{item.appId}}" />
+    </td>
 
-        <td>
-            <span class="tag tag-status tag-big"></span>
-        </td>
+    <td>
+        <span class="tag tag-status tag-big"></span>
+    </td>
 
-        <td class="percentage">{{item.insights.status.last24Hours.uptime}}</td>
-        <td class="percentage">{{item.insights.status.lastWeek.uptime}}</td>
-        <td>{{item.insights.status.lastWeek.downtime}}</td>
-        <td>{{item.insights.status.lastWeek.numberOutages}}</td>
+    <td class="percentage">{{item.insights.status.last24Hours.uptime}}</td>
+    <td class="percentage">{{item.insights.status.lastWeek.uptime}}</td>
+    <td>{{item.insights.status.lastWeek.downtime}}</td>
+    <td>{{item.insights.status.lastWeek.numberOutages}}</td>
 
-        <td class="dropdown-container td-center">
-            <button class="btn btn-icon dropdown-toggle" role="button">
-                <span class="icon-more"></span>
-            </button>
-            <nav class="dropdown-menu dm-overlay dm-white">
-                <ul>
-                    <li class="container-icon">
+    <td class="dropdown-container td-center">
+        <button class="btn btn-icon dropdown-toggle" role="button">
+            <span class="icon-more"></span>
+        </button>
+        <nav class="dropdown-menu dm-overlay dm-white">
+            <ul>
+                <li class="container-icon" on:click="action(event, 'delete')">
+                    <a href="#">
+                        <span class="icon-delete"></span>Delete
+                    </a>
+                </li>
+                <li class="container-icon" on:click="action(event, 'edit')">
                         <a href="#">
-                            <span class="icon-delete"></span>Delete</a>
-                    </li>
-                    <li class="container-icon">
-                        <a href="#">
-                            <span class="icon-edit"></span>Edit</a>
-                    </li>
-                    <li class="container-icon">
-                        <a href="#">
-                            <span class="icon-pause"></span>Pause Monitor</a>
-                    </li>
-                </ul>
-            </nav>
-        </td>
+                        <span class="icon-edit"></span>Edit
+                    </a>
+                </li>
+                <li class="container-icon" on:click="action(event, 'pause')">
+                        <a href="#" >
+                        <span class="icon-pause"></span>Pause Monitor
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </td>
 </tr>
 
 <script>
+    import Link from './Link.html';
+    import history from '../services/history';
     export default {
+        oncreate() {
+            console.log('here, here');
+            this.observe('item', item => {
+                console.log('item', item);
+            });
+            console.log('item', this.get('item'));
+        },
+        methods: {
+            action: function(event, action) {
+                if(event && event.preventDefault) {
+                    event.preventDefault();
+                }
+                switch(action) {
+                    case 'edit': 
+                        const appid = this.get('item').id;
+                        history.push(`/application/${appid}/edit`);
+                    break;
+                }
+            }
+        },
         helpers: {
             getStatus(online) {
                 return online ? 'online' : 'offline';
@@ -47,15 +73,18 @@
         computed: {
             status: online => online ? 'online' : 'offline'
         },
+        components: {
+            Link
+        },
         data() {
             return {
                 item: {
-                    status: 'online',
-                    appId: 'HotDesk',
-                    last24Hours: 99.99,
-                    lastWeek: 88.99,
-                    downtime: 12000,
-                    outages: 3
+                    status: '',
+                    appId: '',
+                    last24Hours: 0,
+                    lastWeek: 0,
+                    downtime: 0,
+                    outages: 0
                 }
             }
         }
