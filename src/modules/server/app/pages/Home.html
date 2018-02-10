@@ -1,0 +1,91 @@
+<header class="row">
+    <h1 class="title">Applications</h1>
+    <Button to="/application/add" text="Add Application" type="add"/>
+</header>
+
+<div class="layout-w">
+    <ul class="tab-menu">
+        <li class="active">
+            <a href="#applications-all" title="All">All</a>
+        </li>
+        <li>
+            <a href="#application-online" title="Online(4)">Online({{online}})</a>
+        </li>
+        <li>
+            <a href="#application-offline" title="Offline(1)">Offline({{offline}})</a>
+        </li>
+    </ul>
+
+    <table class="table-rows-white">
+        <thead>
+            <tr>
+                <th></th>
+                <th></th>
+                <th>Status</th>
+                <th>Last 24 hours</th>
+                <th>Last Week</th>
+                <th>Down<wbr>time</th>
+                <th>Out<wbr>ages</th>
+                <th class="text-center">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#await applications}}
+            <p>We are loading results...</p>
+            {{then response}} 
+                {{#each response as value}}
+                    <Item item='{{value}}' /> 
+                {{/each}} 
+            {{catch error}}
+            <p>Well that's odd... An error occurred during processing your request.</p>
+            {{/await}}
+        </tbody>
+    </table>
+</div>
+
+
+<script>
+    import api from '../services/api';
+
+    import Item from '../components/ApplicationListItem.html';
+    import Button from '../components/Button.html';
+
+    export default {
+
+        oncreate() {
+            let promise = api.buildApplicationInsights();
+
+            promise.then(_ => {
+                this.set({ 
+                    online: 2,
+                    offline: 0
+                });
+            });
+            this.set({ applications: promise });
+        },
+        methods: {
+            addApplication() {
+                console.log('message')
+            }
+        },
+        helpers: {
+            onlineApps: function () {
+
+            },
+            offlineApps: function () {
+
+            }
+        },
+        components: {
+            Item,
+            Button
+        },
+        data() {
+            return {
+                online: 0,
+                offline: 0,
+                applications: []
+            }
+        }
+    }
+</script>

@@ -1,0 +1,216 @@
+<header class="row">
+    <div class="title" data-status="{{getStatus(app.online)}}">
+        <h1 class="title">{{app.identifier}}</h1>
+        <span class="tag tag-status tag-small">
+        </span>
+    </div>
+    <Button to="/application/{{appid}}/edit" text="Edit Application" type="edit" />
+</header>
+
+
+<article class="panel-blue panel-3">
+    <div class="chart-bars-2">
+        <p class="chart-bars-2__title">Probe Latency</p>
+        <div id="chart-probe-latency" class="chart-bars-2__chart"></div>
+
+        <div class="chart-bars-2__info row">
+            <ul class="row">
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Probes</p>
+                    <p class="chart-bars-2__details-value">368</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Mean</p>
+                    <p class="chart-bars-2__details-value">267</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Min</p>
+                    <p class="chart-bars-2__details-value">63</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Max</p>
+                    <p class="chart-bars-2__details-value">363</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Errors</p>
+                    <p class="chart-bars-2__details-value">3</p>
+                </li>
+            </ul>
+
+            <div class="chart-bars-2__select">
+                <div class="dropdown-container">
+                    <button class="btn btn-sm btn-primary btn-split dropdown-toggle" role="button">
+                        <span>Hour</span>
+                        <span class="icon-arrow-down">
+                    </button>
+                    <menu class="dropdown-menu dm-aligned dm-white">
+                        <ul>
+                            <li>Day</li>
+                            <li>Week</li>
+                            <li>Month</li>
+                            <li>Year</li>
+                        </ul>
+                    </menu>
+                </div>
+            </div>
+        </div>
+    </div>
+</article>
+
+
+<div class="layout-w">
+
+    <ul class="tab-menu">
+        <li class="active">
+            <a href="#info" title="Info">Info</a>
+        </li>
+        <li>
+            <a href="#services" title="Services">Services</a>
+        </li>
+    </ul>
+
+    <section id="info">
+        <h2>Information</h2>
+        <div class="layout-2-cols">
+            <article class="panel-white panel-1 col-left">
+                <table class="table-cols">
+                    <tbody>
+                        <tr>
+                            <td>App ID:</td>
+                            <td>{{app.appId}}</td>
+                        </tr>
+                        <tr>
+                            <td>Hostname:</td>
+                            <td>{{app.hostname}}</td>
+                        </tr>
+                        <tr>
+                            <td>Identifier:</td>
+                            <td>{{app.identifier}}</td>
+                        </tr>
+                        <tr>
+                            <td>Environment:</td>
+                            <td>{{app.environment}}</td>
+                        </tr>
+                        <tr>
+                            <td>Created At:</td>
+                            <td>{{app.createdAt}}</td>
+                        </tr>
+                        <tr>
+                            <td>Updated At:</td>
+                            <td>{{app.updatedAt}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h3>Metadata</h3>
+                <hr>
+                <table class="table-cols-mixed">
+                    <tbody>
+                        <tr class="t-mixed-title">
+                            <td>Health</td>
+                        </tr>
+                        <tr class="t-mixed-details">
+                            <td>URL:</td>
+                            <td>http://hotdesk.example.net/api/health</td>
+                        </tr>
+                        <tr class="t-mixed-title">
+                            <td>REPL</td>
+                        </tr>
+                        <tr class="t-mixed-details">
+                            <td>Port:</td>
+                            <td>4567</td>
+                        </tr>
+                        <tr class="t-mixed-title">
+                            <td>Server</td>
+                        </tr>
+                        <tr class="t-mixed-details">
+                            <td>Port:</td>
+                            <td>9876</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </article>
+
+            <div class="col col-right">
+                <article class="row row-vCentered">
+                    <div class="chart-circle">
+                        <div class="chart-circle__chart"></div>
+                        <div>
+                            <p class="chart-circle__title">Uptime</p>
+                            <p class="chart-circle__value">100%</p>
+                        </div>
+                    </div>
+                    <div class="chart-bar">
+                        <p class="chart-bar__title">24 Hours Uptime</p>
+                        <div class="chart-bar__chart"></div>
+                    </div>
+                </article>
+
+                <article class="panel-white panel-2">
+                    <div class="chart-bars">
+                        <p class="chart_bars__title">Average Latency</p>
+                        <div class="chart_bars__chart"></div>
+                    </div>
+                </article>
+
+                <article>
+                    <h2>Last Week Outages</h2>
+                    <table class="table-rows">
+                        <tbody>
+                            <tr>
+                                <td>ECONNREFUSED</td>
+                                <td>03:32</td>
+                                <td>Wed, 31 Jan 2018 02:24:23</td>
+                            </tr>
+                            <tr>
+                                <td>ECONNREFUSED</td>
+                                <td>07:02</td>
+                                <td>Mon, 12 Dec 2017 23:14:37</td>
+                            </tr>
+                            <tr>
+                                <td>ECONNREFUSED</td>
+                                <td>01:31</td>
+                                <td>Wed, 31 Jan 2018 13:48:42</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </article>
+            </div>
+    </section>
+</div>
+
+<script src="/js/vendors/d3.v4.min.js"></script>
+<!-- billboard.js -->
+<script src="/js/vendor/billboard.min.js"></script>
+<link rel="stylesheet" href="/css/billboard.min.css">
+<!-- configuration -->
+<script src="/js/vendors/charts.js"></script>
+
+
+<script>
+    import api from '../services/api';
+    import Button from '../components/Button.html';
+    export default {
+
+        oncreate() {
+            const appid = this.get('appid');
+            const request = api.getApplication(appid).then(app => {
+                this.set({ app });
+            });
+
+            window.page = this;
+        },
+        components: {
+            Button
+        },
+        helpers: {
+            getStatus(online) {
+                return online ? 'online' : 'offline';
+            }
+        },
+        data() {
+            return {
+                app: {}
+            }
+        }
+    }
+</script>

@@ -1,0 +1,108 @@
+<header class="row">
+    <div class="title" data-status="{{getStatus(app.online)}}">
+        <h1 class="title">{{app.identifier}}</h1>
+        <span class="tag tag-status tag-small">
+        </span>
+    </div>
+</header>
+
+
+<div class="layout-w">
+    <ul class="tab-menu">
+        <li class="active">
+            <a href="#" title="Info">Info</a>
+        </li>
+        <li>
+            <a href="service-edit.html" title="Services">Services</a>
+        </li>
+    </ul>
+
+    <section id="info">
+        <form class="form-rows">
+            <h2>Information</h2>
+            <article class="panel-white panel-1">
+                <div class="form-group">
+                    <label for="app-id">App ID</label>
+                    <input id="app-id" value="{{app.appId}}" type="text">
+                </div>
+
+                <div class="form-group">
+                    <label for="Hostname">Hostname</label>
+                    <input id="Hostname" value="{{app.hostname}}" type="text">
+                </div>
+
+                <div class="form-group">
+                    <label for="identifier">Identifier</label>
+                    <input id="identifier" value="{{app.identifier}}" type="text">
+                </div>
+
+                <div class="form-group">
+                    <label for="environment">Environment</label>
+                    <input id="environment" value="{{app.environment}}" type="text">
+                </div>
+
+                <div class="form-group">
+                    <label for="created">Created At</label>
+                    <input id="created" value="{{app.createdAt}}">
+                </div>
+
+                <div class="form-group">
+                    <label for="upadted">Updated At</label>
+                    <input id="upadted" value="{{app.updatedAt}}">
+                </div>
+            </article>
+
+            <h2>Metadata</h2>
+            <article class="panel-white panel-1">
+                <div class="form-group">
+                    <label for="data">Data</label>
+                    <textarea id="data">{{app.data}}</textarea>
+                </div>
+            </article>
+
+            <div class="row row-right">
+                <button class="btn btn-secondary" role="button">
+                    <a href="#" on:click="cancel(event)">Cancel</a>
+                </button>
+                <button class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </section>
+</div>
+
+<script>
+    import api from '../services/api';
+    import history from '../services/history';
+    export default {
+
+        oncreate() {
+            const appid = this.get('appid');
+            const request = api.getApplication(appid).then(app => {
+                this.set({ app });
+            });
+
+            window.page = this;
+        },
+        methods: {
+            cancel(event, path='/'){
+                if (event && event.preventDefault) {
+                    event.preventDefault();
+                }
+
+                if (path) {
+                    history.push(path);
+                }
+            },
+        },
+        helpers: {
+            getStatus(online) {
+                return online ? 'online' : 'offline';
+            }
+        },
+        data() {
+            return {
+                app: {}
+            }
+        }
+    }
+</script>
