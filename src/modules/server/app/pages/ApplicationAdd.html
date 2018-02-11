@@ -8,7 +8,7 @@
 <div class="layout-w">
     <ul class="tab-menu">
         <li class="active">
-            <a href="#" title="Info">Info</a>
+            <a href="#" title="Info">Information</a>
         </li>
     </ul>
 
@@ -18,22 +18,22 @@
             <article class="panel-white panel-1">
                 <div class="form-group">
                     <label for="app-id">App ID</label>
-                    <input id="app-id" value="{{item.appId}}" type="text">
+                    <input bind:value="item.appId" type="text" placeholder="App ID">
                 </div>
 
                 <div class="form-group">
                     <label for="Hostname">Hostname</label>
-                    <input id="Hostname" value="{{item.hostname}}" type="text">
-                </div>
-
-                <div class="form-group">
-                    <label for="identifier">Identifier</label>
-                    <input id="identifier" value="{{item.identifier}}" type="email">
+                    <input bind:value="item.hostname" type="text" placeholder="Hostname">
                 </div>
 
                 <div class="form-group">
                     <label for="environment">Environment</label>
-                    <input id="environment" value="{{item.environment}}" type="text">
+                    <input bind:value="item.environment" type="text" placeholder="Environment">
+                </div>
+
+                <div class="form-group">
+                    <label for="identifier">Identifier</label>
+                    <input bind:value="item.identifier" value="{{identity}}" type="text" placeholder="Identifier">
                 </div>
 
             </article>
@@ -47,10 +47,10 @@
             </article>
 
             <div class="row row-right">
-                <button class="btn btn-secondary" role="button">
-                    <a href="#" on:click="cancel(event)">Cancel</a>
+                <button on:click="cancel(event)" class="btn btn-secondary" role="button">
+                    Cancel
                 </button>
-                <button class="btn btn-primary">Save</button>
+                <button on:click="save(event, item)" class="btn btn-primary" role="button">Save</button>
             </div>
         </form>
     </section>
@@ -59,6 +59,19 @@
 <script>
     import history from '../services/history';
     export default {
+        oncreate(){
+            this.observe('identity', (value, old) => {
+                let item = this.get('item');
+                item.identifier = value;
+                this.set(item);
+            });
+        },
+        computed: {
+            identity: (item) => {
+                if(!item.appId && !item.hostname && !item.environment) return '';
+                return item.appId + '.' + item.environment + '@' + item.hostname;
+            }
+        },
         methods: {
             cancel(event, path='/'){
                 if (event && event.preventDefault) {
@@ -69,10 +82,22 @@
                     history.push(path);
                 }
             },
-            
+            save(event, item) {
+                if (event && event.preventDefault) {
+                    event.preventDefault();
+                }
+                console.log('save', item);
+            }
         },
         data() {
-            return {item: {}};
+            return {
+                item: {
+                    appId: '',
+                    hostname: '',
+                    identifier: '',
+                    environment: ''
+                }
+            };
         }
     }
 </script>
