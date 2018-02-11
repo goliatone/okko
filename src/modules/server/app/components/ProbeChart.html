@@ -1,0 +1,128 @@
+<:Head>
+    <!-- configuration -->
+    <link rel="stylesheet" href="/css/billboard.min.css">
+</:Head>
+
+<article class="panel-blue panel-3">
+        <div class="chart-bars-2">
+          <p class="chart-bars-2__title">{{title}}</p>
+          <div id="js-chart-probe-latency" class="chart-bars-2__chart"></div>
+
+          <div class="chart-bars-2__info row">
+            <ul class="row">
+              <li class="chart-bars-2__detail">
+                <p class="chart-bars-2__details-title">Probes</p>
+                <p class="chart-bars-2__details-value">{{probes}}</p>
+              </li>
+              <li class="chart-bars-2__detail">
+                <p class="chart-bars-2__details-title">Mean</p>
+                <p class="chart-bars-2__details-value">{{mean}}</p>
+              </li>
+              <li class="chart-bars-2__detail">
+                <p class="chart-bars-2__details-title">Min</p>
+                <p class="chart-bars-2__details-value">{{min}}</p>
+              </li>
+              <li class="chart-bars-2__detail">
+                <p class="chart-bars-2__details-title">Max</p>
+                <p class="chart-bars-2__details-value">{{max}}</p>
+              </li>
+              <li class="chart-bars-2__detail">
+                <p class="chart-bars-2__details-title">Errors</p>
+                <p class="chart-bars-2__details-value">{{errors}}</p>
+              </li>
+            </ul>
+
+            <div class="chart-bars-2__select">
+              <div id="js-probe-latency-select" class="dropdown-container">
+                <button
+                  class="btn btn-sm btn-primary btn-split dropdown-toggle btn-select" role="button">
+                  <span class="js-selection">Hour</span>
+                  <span class="icon-arrow-down">
+                </button>
+                <menu class="dropdown-menu dm-aligned dm-primary">
+                  <ul>
+                    <li data-frequency="hour" class="js-hidden">Hour</li>
+                    <li data-frequency="day">Day</li>
+                    <li data-frequency="week">Week</li>
+                    <li data-frequency="month">Month</li>
+                  </ul>
+                </menu>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+<script>
+    import billboard from '../services/billboard';
+
+    window.bb = billboard.bb;
+    window.billboard = billboard;
+    window.d3 = billboard.d3;
+
+    export default {
+
+        oncreate() {
+            const BAR_BG = '#8199ab';
+            const HIGHLIGHT_BG = '#ff206a';
+
+            const hour = ['hour', 47, 89, 47, 66, 47, 141, 66, 47, 122, 100, 141, 89, 173, 122,
+            100, 196, 66, 66, 47, 113, 66, 89, 66, 205, 100, 122, 66, 66,
+            47, 66, 100, 205, 66, 141, 89, 152, 47, 66, 152, 141, 47, 66,
+            89, 100,205, 89, 47, 100, 66, 113, 66, 47, 100, 89, 113, 47,
+            66, 100, 47, 113, 100, 89, 47, 66, 47, 89, 66, 89, 100];
+
+            var chart = bb.generate({
+                data: {
+                    columns: [hour],
+                    type: 'bar',
+                    // set bars fill color
+                    colors: { data: BAR_BG },
+                    // set fill color for max values in chart
+                    onmax: function (data) {
+                        data.forEach(function (v) {
+                            let max_el = d3.select("#js-chart-probe-latency .bb-shapes-" + v.id + " .bb-bar-" + v.index);
+                            max_el.style('fill', HIGHLIGHT_BG);
+                        });
+                    }
+                },
+                axis: {
+                    // hide axis
+                    x: {
+                        show: false
+                    },
+                    y: {
+                        show: false,
+                        // set y axis range
+                        min: 0,
+                        max: 165,
+                        // padding: 0
+                    }
+                },
+                grid: {
+                    y: {
+                        show: true,
+                        lines: true
+                    },
+                    lines: { front: true }
+                },
+                legend: { show: false}, // hide legend
+                bar: {
+                    width: { ratio: 0.35 }
+                },
+                bindto: '#js-chart-probe-latency'
+            });
+            
+            window.chart = chart;
+        },
+        data() {
+            return {
+                probes: 0,
+                mean: 0,
+                min: 0,
+                max:0,
+                errors: 0,
+            }
+        }
+    }
+</script>
