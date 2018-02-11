@@ -9,85 +9,159 @@
 
 <div class="layout-w">
     <ul class="tab-menu">
-        <li class="active">
-            <a href="#" title="Info">Info</a>
+        <li on:click="select('info')" class="{{active(selected, 'info', 'active')}}">
+            <a title="Info">Info</a>
         </li>
-        <li>
-            <a href="service-edit.html" title="Services">Services</a>
+        <li on:click="select('services')" class="{{active(selected, 'services', 'active')}}">
+            <a title="Services">Services</a>
         </li>
     </ul>
-
-    <section id="info">
-        <form class="form-rows">
+    <form class="form-rows">
+    <section id="info" class="{{active(selected, 'info')}}">
             <h2>Information</h2>
             <article class="panel-white panel-1">
                 <div class="form-group">
                     <label for="app-id">App ID</label>
-                    <input id="app-id" value="{{app.appId}}" type="text">
+                    <input name="app-id" bind:value="app.appId" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="Hostname">Hostname</label>
-                    <input id="Hostname" value="{{app.hostname}}" type="text">
+                    <input bind:value="app.hostname" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="identifier">Identifier</label>
-                    <input id="identifier" value="{{app.identifier}}" type="text">
+                    <input bind:value="app.identifier" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="environment">Environment</label>
-                    <input id="environment" value="{{app.environment}}" type="text">
+                    <input bind:value="app.environment" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="created">Created At</label>
-                    <input id="created" value="{{app.createdAt}}">
+                    <input bind:value="app.createdAt" type="date">
                 </div>
 
                 <div class="form-group">
                     <label for="upadted">Updated At</label>
-                    <input id="upadted" value="{{app.updatedAt}}">
+                    <input bind:value="app.updatedAt" type="date">
                 </div>
             </article>
 
             <h2>Metadata</h2>
             <article class="panel-white panel-1">
+                {{#each attributes as attr}}
                 <div class="form-group">
-                    <label for="data">Data</label>
-                    <textarea id="data">{{app.data}}</textarea>
+                    <label for="upadted">{{attr.key}}</label>
+                    <input value="{{attr.value}}" type="text">
+                </div>
+                {{/each}}
+                <div class="form-group">
+                    <label for="upadted">Attribute</label>
+                    <input value="" type="text">
                 </div>
             </article>
-
-            <div class="row row-right">
-                <button class="btn btn-secondary" role="button">
-                    <a href="#" on:click="cancel(event)">Cancel</a>
-                </button>
-                <button class="btn btn-primary">Save</button>
-            </div>
-        </form>
     </section>
+    <section id="services" class="{{active(selected, 'services')}}">
+            <h2>Services</h2>
+            <article class="panel-white panel-1">
+                <div class="form-group">
+                    <label for="interval">Interval</label>
+                    <input name="interval" bind:value="service.interval" type="number">
+                </div>
+
+                <div class="form-group">
+                    <label for="latency">Latency Limit</label>
+                    <input name="latency" bind:value="service.latencyLimit" type="number">
+                </div>
+
+                <div class="form-group">
+                    <label for="threshold">Response Alert Threshold</label>
+                    <input name="threshold" bind:value="service.responseAlertThreshold" type="number">
+                </div>
+
+                <div class="form-group">
+                    <label for="errorThreshold">Error Alert Threshold</label>
+                    <input name="errorThreshold" bind:value="service.errorAlterThreshold" type="number">
+                </div>
+
+                <div class="form-group">
+                    <label for="timeout">Timeout After</label>
+                    <input name="timeout" bind:value="service.timeoutAfter" type="number">
+                </div>
+            </article>
+        
+    </section>
+    <div class="row row-right">
+        <button on:click="cancel(event)" class="btn btn-secondary" role="button">
+            Cancel
+        </button>
+        <button on:click="submit(event)" class="btn btn-primary">Save</button>
+    </div>
+    </form>
 </div>
+
+<style>
+    .visible {display:inherit;}
+	.hidden {display:none;}
+</style>
 
 <script>
     import api from '../services/api';
     import history from '../services/history';
+
+    function prevent(event){
+        if(event && event.preventDefault) {
+            event.preventDefault();
+        }
+    }
+
     export default {
 
         oncreate() {
             const appid = this.get('appid');
+
             const request = api.getApplication(appid).then(app => {
-                this.set({ app });
+                console.info(app)
+                this.setAttributes(app.data);
+                this.set({app});
             });
 
             window.page = this;
         },
         methods: {
-            cancel(event, path='/'){
-                if (event && event.preventDefault) {
-                    event.preventDefault();
+            select(section){
+			  this.set({selected:section});
+			},
+            setAttributes(data){
+                let attributes = this.get('attributes') || {};
+                
+                function parseKeys(obj, path=[]) {
+                    Object.keys(obj).forEach(key => {
+                        path.push(key);
+                        let value = obj[key];
+                        if(typeof value === 'object') {
+                            return parseKeys(value, path);
+                        }
+                        attributes.push({
+                            key, 
+                            value
+                        });
+                    });
                 }
+                parseKeys(data);
+
+                this.set({attributes});
+            },
+            submit(event) {
+                prevent(event);
+                console.log('submit!', this.get('app'));
+            },
+            cancel(event, path='/') {
+                prevent(event);
 
                 if (path) {
                     history.push(path);
@@ -97,11 +171,31 @@
         helpers: {
             getStatus(online) {
                 return online ? 'online' : 'offline';
-            }
+            },
+            active (selected, val, type='visible') {
+                if(type === 'visible'){
+                    return selected === val ? 'visible' : 'hidden';
+                }
+                if(type === 'active'){
+                    return selected === val ? 'active' : 'inactive';
+                }
+	        }
         },
         data() {
             return {
-                app: {}
+                selected: 'info',
+                app: {},
+                service: {
+                    //application
+                    //endpoint
+                    //uuid
+                    errorAlterThreshold: 1,
+                    interval: 30000,
+                    latencyLimit: 5000,
+                    responseAlertThreshold: 1,
+                    timeoutAfter: 30000,
+                },
+                attributes: []
             }
         }
     }
