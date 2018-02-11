@@ -35,7 +35,7 @@ function getServices() {
     return fetch('/api/services').then(res => {
         return res.json();
     })
-    .then(json =>{
+    .then(json => {
         
         json.value.map(service => {
             cache.services[service.id] = service;
@@ -48,6 +48,15 @@ function getServices() {
 function getInsights() {
     return fetch('/api/insights').then(res => {
         return res.json();
+    });
+}
+
+function getInsightsFor(application) {
+    return getInsights().then(json => {
+        let value = json.value;
+        return value.find((insight)=>{
+            return insight.service.id = application;
+        });
     });
 }
 
@@ -68,12 +77,14 @@ function buildApplicationInsights() {
                     applications.map(application => {
                         if (application.id === service.application) {
                             application.service = service;
+
+                            insights.map(insight => {
+                                if (insight.service.id === service.id) {
+                                    application.insights = insight;
+                                }
+                            });
                         }
-                        insights.map(insight => {
-                            if (insight.service.id === service.id) {
-                                application.insights = insight;
-                            }
-                        });
+                        
                     });
                 });
 
@@ -88,6 +99,7 @@ export default {
     getInsights,
     getApplication,
     getApplications,
+    getInsightsFor,
     getServices,
     buildApplicationInsights
 };
