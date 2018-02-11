@@ -8,55 +8,7 @@
 </header>
 
 
-<article class="panel-blue panel-3">
-    <div class="chart-bars-2">
-        <p class="chart-bars-2__title">Probe Latency</p>
-        <div id="chart-probe-latency" class="chart-bars-2__chart"></div>
-
-        <div class="chart-bars-2__info row">
-            <ul class="row">
-                <li class="chart-bars-2__detail">
-                    <p class="chart-bars-2__details-title">Probes</p>
-                    <p class="chart-bars-2__details-value">368</p>
-                </li>
-                <li class="chart-bars-2__detail">
-                    <p class="chart-bars-2__details-title">Mean</p>
-                    <p class="chart-bars-2__details-value">267</p>
-                </li>
-                <li class="chart-bars-2__detail">
-                    <p class="chart-bars-2__details-title">Min</p>
-                    <p class="chart-bars-2__details-value">63</p>
-                </li>
-                <li class="chart-bars-2__detail">
-                    <p class="chart-bars-2__details-title">Max</p>
-                    <p class="chart-bars-2__details-value">363</p>
-                </li>
-                <li class="chart-bars-2__detail">
-                    <p class="chart-bars-2__details-title">Errors</p>
-                    <p class="chart-bars-2__details-value">3</p>
-                </li>
-            </ul>
-
-            <div class="chart-bars-2__select">
-                <div class="dropdown-container">
-                    <button class="btn btn-sm btn-primary btn-split dropdown-toggle" role="button">
-                        <span>Hour</span>
-                        <span class="icon-arrow-down">
-                    </button>
-                    <menu class="dropdown-menu dm-aligned dm-white">
-                        <ul>
-                            <li>Day</li>
-                            <li>Week</li>
-                            <li>Month</li>
-                            <li>Year</li>
-                        </ul>
-                    </menu>
-                </div>
-            </div>
-        </div>
-    </div>
-</article>
-
+<Chart title="Probe Latency" />
 
 <div class="layout-w">
 
@@ -178,17 +130,11 @@
     </section>
 </div>
 
-<script src="/js/vendors/d3.v4.min.js"></script>
-<!-- billboard.js -->
-<script src="/js/vendor/billboard.min.js"></script>
-<link rel="stylesheet" href="/css/billboard.min.css">
-<!-- configuration -->
-<script src="/js/vendors/charts.js"></script>
-
-
 <script>
     import api from '../services/api';
     import Button from '../components/Button.html';
+    import Chart from '../components/ProbeChart.html';
+
     export default {
 
         oncreate() {
@@ -200,7 +146,8 @@
             window.page = this;
         },
         components: {
-            Button
+            Button,
+            Chart,
         },
         helpers: {
             getStatus(online) {
