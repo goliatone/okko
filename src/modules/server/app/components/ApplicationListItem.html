@@ -12,7 +12,7 @@
 
     <td class="percentage">{{item.insights.status.last24Hours.uptime}}</td>
     <td class="percentage">{{item.insights.status.lastWeek.uptime}}</td>
-    <td>{{item.insights.status.lastWeek.downtime}}</td>
+    <td>{{formatDowntime(item.insights.status.lastWeek.downtime)}}</td>
     <td>{{item.insights.status.lastWeek.numberOutages}}</td>
 
     <td class="dropdown-container td-center">
@@ -44,13 +44,15 @@
 <script>
     import Link from './Link.html';
     import history from '../services/history';
+    import api  from '../services/api';
+
     export default {
         oncreate() {
             console.log('here, here');
             this.observe('item', item => {
                 console.log('item', item);
             });
-            console.log('item', this.get('item'));
+            api.getInsights()
         },
         methods: {
             action: function(event, action) {
@@ -68,6 +70,21 @@
         helpers: {
             getStatus(online) {
                 return online ? 'online' : 'offline';
+            },
+            formatDowntime(downtime){
+                function pad(n, z) {
+                    z = z || 2;
+                    return ('00' + n).slice(-z);
+                }
+
+                var ms = downtime % 1000;
+                downtime = (downtime - ms) / 1000;
+                var secs = downtime % 60;
+                downtime = (downtime - secs) / 60;
+                var mins = downtime % 60;
+                var hrs = (downtime - mins) / 60;
+
+                return pad(hrs) + ':' + pad(mins) + ':' + pad(secs);
             }
         },
         computed: {
