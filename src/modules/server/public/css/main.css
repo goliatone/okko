@@ -405,9 +405,10 @@ article {
   z-index: 1; }
 
 .dropdown-toggle:active + .dropdown-menu,
-.dropdown-toggle.active + .dropdown-menu,
-.dropdown-menu:hover {
-  display: block; }
+.dropdown-toggle.active + .dropdown-menu {
+  display: block;
+  opacity: 1;
+  height: auto; }
 
 .dropdown-toggle:focus {
   outline: none; }
@@ -419,10 +420,16 @@ article {
 
 /* positioned aligned bottom with button */
 .dropdown-menu.dm-aligned {
-  top: calc(100% - 3px);
+  top: 102.6%;
   right: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0; }
+
+/* remove bottom border radius
+ * when dropdown is active */
+.btn.dropdown-toggle.active {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0; }
 
 /* dropdown style */
 .dropdown-menu {
@@ -451,6 +458,12 @@ article {
     height: 18px;
     margin-right: 10px; }
 
+/* when dropdown toggle button is small */
+.btn-sm + .dropdown-menu {
+  padding: 3px 0; }
+  .btn-sm + .dropdown-menu li {
+    padding: 6px 16px; }
+
 .dm-white {
   color: #002827;
   background: #fafafa;
@@ -459,6 +472,12 @@ article {
     border-bottom: 1px solid #e2e2e2; }
     .dm-white li:hover {
       background: #e1e1e1; }
+
+.dm-primary {
+  background: #0fbcf9;
+  color: #F2F2F2; }
+  .dm-primary li:hover {
+    background: #059bd0; }
 
 /* ----------------------------------------------- BUTTONS */
 .btn {
@@ -529,20 +548,25 @@ article {
     height: inherit;
     padding-left: 14px;
     border-right: 1px solid #f2f2f2; }
-  .btn-split span[class^="icon"] {
+  .btn-split .icon-arrow-down {
     width: 33px; }
-    .btn-split span[class^="icon"]:after {
+    .btn-split .icon-arrow-down:after {
       content: "";
       display: inline-block;
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-bottom: 2px solid white;
       border-right: 2px solid white;
       -webkit-transform: rotate(45deg);
           -ms-transform: rotate(45deg);
-              transform: rotate(45deg);
-      position: relative;
-      top: 3px; }
+              transform: rotate(45deg); }
+
+/* when as active dropdown button,
+ * rotate arrow */
+.dropdown-toggle.active.btn-split .icon-arrow-down::after {
+  -webkit-transform: rotate(225deg) translate(-3px, -3px);
+      -ms-transform: rotate(225deg) translate(-3px, -3px);
+          transform: rotate(225deg) translate(-3px, -3px); }
 
 /* -------------------------------------------------- TAGS */
 .tag {
@@ -686,6 +710,9 @@ article {
   margin-left: 15px; }
 
 /* ------------------------------------- COMPONENTS-CHARTS */
+.js-hidden {
+  display: none; }
+
 /* ------------------------------ CHART CIRCLE */
 .chart-circle {
   display: -webkit-box;
@@ -748,14 +775,20 @@ article {
 
 .chart-bars-2__chart {
   width: 100%;
-  height: 225px;
-  padding: 8px 16px;
-  margin-bottom: 22px; }
+  height: 245px;
+  padding: 38px 16px 8px;
+  margin-bottom: 15px; }
   .chart-bars-2__chart svg {
     width: 100%;
     height: 100%; }
     .chart-bars-2__chart svg .max {
       fill: #ff206a; }
+    .chart-bars-2__chart svg .bb-ygrid-line line {
+      stroke: #41556b;
+      z-index: 0; }
+    .chart-bars-2__chart svg line.bb-ygrid {
+      stroke-dasharray: 0;
+      stroke: #41556b; }
 
 .chart-bars-2__title {
   position: absolute;

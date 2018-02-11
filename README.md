@@ -39,4 +39,6 @@ outfile.close()
 https://sensuapp.org/
 https://www.icinga.com/
 https://alternativeto.net/tag/uptime-monitoring/
+
+https://fonts.google.com/selection?category=Sans+Serif&selection.family=Audiowide|Bungee|Days+One|Exo|Fascinate+Inline|Monoton|Orbitron|Plaster|Russo+One
 -->
