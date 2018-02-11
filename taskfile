@@ -10,7 +10,7 @@ PATH=./src/node_modules/.bin:$PATH
 
 function link:core {
     rm -r ./src/node_modules/application-core && ln -s ~/Development/NODEJS/application-core ./src/node_modules/application-core
-    rm -r ./src/node_modules/base-cli-commands && ln -s ~/Development/NODEJS/base-cli-commands no
+    rm -r ./src/node_modules/base-cli-commands && ln -s ~/Development/NODEJS/base-cli-commands ./src/node_modules/base-cli-commands
     rm -r ./src/node_modules/core.io-pubsub-mqtt && ln -s ~/Development/NODEJS/core.io-pubsub-mqtt ./src/node_modules/core.io-pubsub-mqtt 
     rm -r ./src/node_modules/core.io-persistence && ln -s ~/Development/NODEJS/core.io-persistence ./src/node_modules/core.io-persistence
     rm -r ./src/node_modules/core.io-express-server && ln -s ~/Development/NODEJS/core.io-express-server ./src/node_modules/core.io-express-server
