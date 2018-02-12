@@ -16,7 +16,7 @@
     <td>{{item.insights.status.lastWeek.numberOutages}}</td>
 
     <td class="dropdown-container td-center">
-        <button class="btn btn-icon dropdown-toggle" role="button">
+        <button on:click="set({dropdown:'active'})" class="btn btn-icon dropdown-toggle {{dropdown}}" role="button">
             <span class="icon-more"></span>
         </button>
         <nav class="dropdown-menu dm-overlay dm-white">
@@ -44,21 +44,20 @@
 <script>
     import Link from './Link.html';
     import history from '../services/history';
-    import api  from '../services/api';
 
     export default {
         oncreate() {
-            console.log('here, here');
-            this.observe('item', item => {
-                console.log('item', item);
-            });
-            api.getInsights()
+            console.log('oncreate: application list item');
+            // this.observe('item', item => {
+            //     console.log('item', item);
+            // });
         },
         methods: {
             action: function(event, action) {
                 if(event && event.preventDefault) {
                     event.preventDefault();
                 }
+
                 switch(action) {
                     case 'edit': 
                         const appid = this.get('item').id;
@@ -71,7 +70,7 @@
             getStatus(online) {
                 return online ? 'online' : 'offline';
             },
-            formatDowntime(downtime){
+            formatDowntime(downtime) {
                 function pad(n, z) {
                     z = z || 2;
                     return ('00' + n).slice(-z);

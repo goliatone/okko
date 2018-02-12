@@ -1,11 +1,12 @@
 <Header/>
-    <main id="content">
-        <!-- <Home /> -->
-    </main>
+
+<main id="content"></main>
 
 <Footer/>
 
 <script>
+    //This should be one
+    import history from './services/history';
     import createRouter from './services/createRouter.js';
     import api from './services/api';
     
@@ -25,9 +26,9 @@
         '/application/:appid': ApplicationView,
     });
 
-    window.router = router;
     window.api = api;
-
+    window.router = router;
+    
     export default {
         oncreate() {
             router.start(location, document.querySelector('#content'));
