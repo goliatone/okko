@@ -1,6 +1,6 @@
 <header class="row">
-    <div class="title" data-status="{{getStatus(app.online)}}">
-        <h1 class="title">{{app.identifier}}</h1>
+    <div class="title" data-status="{{getStatus($application.online)}}">
+        <h1 class="title">{{$application.identifier}}</h1>
         <span class="tag tag-status tag-small">
         </span>
     </div>
@@ -22,32 +22,32 @@
             <article class="panel-white panel-1">
                 <div class="form-group">
                     <label for="app-id">App ID</label>
-                    <input name="app-id" bind:value="app.appId" type="text">
+                    <input id="app-id" bind:value="$application.appId" type="text">
                 </div>
 
                 <div class="form-group">
-                    <label for="Hostname">Hostname</label>
-                    <input bind:value="app.hostname" type="text">
+                    <label for="hostname">Hostname</label>
+                    <input id="hostname" bind:value="$application.hostname" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="identifier">Identifier</label>
-                    <input bind:value="app.identifier" type="text">
+                    <input id="identifier" bind:value="$application.identifier" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="environment">Environment</label>
-                    <input bind:value="app.environment" type="text">
+                    <input id="environment" bind:value="$application.environment" type="text">
                 </div>
 
                 <div class="form-group">
                     <label for="created">Created At</label>
-                    <input bind:value="app.createdAt" type="date">
+                    <input id="created" value="{{formatDate($application.createdAt)}}" type="datetime-local" disabled>
                 </div>
 
                 <div class="form-group">
                     <label for="upadted">Updated At</label>
-                    <input bind:value="app.updatedAt" type="date">
+                    <input id="updated" value="{{formatDate($application.updatedAt)}}" type="datetime-local" disabled>
                 </div>
             </article>
 
@@ -99,7 +99,9 @@
         <button on:click="cancel(event)" class="btn btn-secondary" role="button">
             Cancel
         </button>
-        <button on:click="submit(event)" class="btn btn-primary">Save</button>
+        <button on:click="submit(event)" class="btn btn-primary">
+            Save
+        </button>
     </div>
     </form>
 </div>
@@ -110,8 +112,8 @@
 </style>
 
 <script>
-    import api from '../services/api';
-    import history from '../services/history';
+    import bus from '../services/dispatcher';
+    import store from '../models/RootStore';
 
     function prevent(event){
         if(event && event.preventDefault) {
@@ -120,21 +122,25 @@
     }
 
     export default {
-
+        store: () => store,
         oncreate() {
             const appid = this.get('appid');
+            bus.requestApplicationById(appid);
 
-            const request = api.getApplication(appid).then(app => {
-                console.info(app)
+            this.store.observe('application', (app) => {
+                if(typeof app.then === 'function') {
+                    return;
+                }
+
                 this.setAttributes(app.data);
-                this.set({app});
             });
 
             window.page = this;
         },
         methods: {
-            select(section){
-			  this.set({selected:section});
+            select(section) {
+                //this should update #
+                this.set({ selected: section });
 			},
             setAttributes(data){
                 let attributes = this.get('attributes') || {};
@@ -164,11 +170,15 @@
                 prevent(event);
 
                 if (path) {
-                    history.push(path);
+                    bus.goto(path);
                 }
             },
         },
+        
         helpers: {
+            formatDate(datetime='') {
+                return datetime.replace('Z', '');
+            },
             getStatus(online) {
                 return online ? 'online' : 'offline';
             },
