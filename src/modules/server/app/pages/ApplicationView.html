@@ -1,6 +1,6 @@
 <header class="row">
-    <div class="title" data-status="{{getStatus(app.online)}}">
-        <h1 class="title">{{app.identifier}}</h1>
+    <div class="title" data-status="{{getStatus($application.online)}}">
+        <h1 class="title">{{$application.identifier}}</h1>
         <span class="tag tag-status tag-small">
         </span>
     </div>
@@ -13,15 +13,15 @@
 <div class="layout-w">
 
     <ul class="tab-menu">
-        <li class="active">
-            <a href="#info" title="Info">Info</a>
+        <li on:click="select('info')" class="{{active(selected, 'info', 'active')}}">
+            <a title="Info">Info</a>
         </li>
-        <li>
-            <a href="#services" title="Services">Services</a>
+        <li on:click="select('services')" class="{{active(selected, 'services', 'active')}}">
+            <a title="Services">Services</a>
         </li>
     </ul>
 
-    <section id="info">
+    <section class="{{active(selected, 'info')}}">
         <h2>Information</h2>
         <div class="layout-2-cols">
             <article class="panel-white panel-1 col-left">
@@ -29,27 +29,27 @@
                     <tbody>
                         <tr>
                             <td>App ID:</td>
-                            <td>{{app.appId}}</td>
+                            <td>{{$application.appId}}</td>
                         </tr>
                         <tr>
                             <td>Hostname:</td>
-                            <td>{{app.hostname}}</td>
+                            <td>{{$application.hostname}}</td>
                         </tr>
                         <tr>
                             <td>Identifier:</td>
-                            <td>{{app.identifier}}</td>
+                            <td>{{$application.identifier}}</td>
                         </tr>
                         <tr>
                             <td>Environment:</td>
-                            <td>{{app.environment}}</td>
+                            <td>{{$application.environment}}</td>
                         </tr>
                         <tr>
                             <td>Created At:</td>
-                            <td>{{app.createdAt}}</td>
+                            <td>{{$application.createdAt}}</td>
                         </tr>
                         <tr>
                             <td>Updated At:</td>
-                            <td>{{app.updatedAt}}</td>
+                            <td>{{$application.updatedAt}}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -83,27 +83,6 @@
             </article>
 
             <div class="col col-right">
-                <article class="row row-vCentered">
-                    <div class="chart-circle">
-                        <div class="chart-circle__chart"></div>
-                        <div>
-                            <p class="chart-circle__title">Uptime</p>
-                            <p class="chart-circle__value">100%</p>
-                        </div>
-                    </div>
-                    <div class="chart-bar">
-                        <p class="chart-bar__title">24 Hours Uptime</p>
-                        <div class="chart-bar__chart"></div>
-                    </div>
-                </article>
-
-                <article class="panel-white panel-2">
-                    <div class="chart-bars">
-                        <p class="chart_bars__title">Average Latency</p>
-                        <div class="chart_bars__chart"></div>
-                    </div>
-                </article>
-
                 <article>
                     <h2>Last Week Outages</h2>
                     <table class="table-rows">
@@ -131,17 +110,24 @@
 </div>
 
 <script>
-    import api from '../services/api';
+    // import api from '../services/api';
+
+    import bus from '../services/dispatcher';
+    import store from '../models/RootStore';
+
     import Button from '../components/Button.html';
     import Chart from '../components/ProbeChart.html';
 
     export default {
-
+        store: () => store,
         oncreate() {
+            /**
+             * TODO: We should do this in our navigation
+             * step, so when it gets here is already 
+             * loaded(?)
+             */
             const appid = this.get('appid');
-            const request = api.getApplication(appid).then(app => {
-                this.set({ app });
-            });
+            bus.requestApplicationById(appid);
 
             window.page = this;
         },
@@ -149,13 +135,27 @@
             Button,
             Chart,
         },
+        methods: {
+            select(section){
+			  this.set({selected:section});
+			},
+        },
         helpers: {
             getStatus(online) {
                 return online ? 'online' : 'offline';
-            }
+            },
+            active (selected, val, type='visible') {
+                if(type === 'visible'){
+                    return selected === val ? 'visible' : 'hidden';
+                }
+                if(type === 'active'){
+                    return selected === val ? 'active' : 'inactive';
+                }
+	        }
         },
         data() {
             return {
+                selected: 'info',
                 app: {}
             }
         }
