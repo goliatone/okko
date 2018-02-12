@@ -1,6 +1,19 @@
 import Route from 'route-parser';
 import history from './history';
 
+
+
+/**
+ * Refactor router.
+ * See:
+ * formalized: https://github.com/jikkai/svelte-router
+ * added qs: https://github.com/TehShrike/svelte-querystring-router
+ * 
+ * https://github.com/shanewwarren/svelte-router5
+ * https://github.com/router5/router5
+ *
+ */
+
 export default routes => {
     let content;
     let unlisten;
