@@ -9,18 +9,18 @@
             <a href="#applications-all" title="All">All</a>
         </li>
         <li>
-            <a href="#application-online" title="Online(4)">Online({{online}})</a>
+            <a href="#application-online" title="Online(4)">Online({{$online}})</a>
         </li>
         <li>
-            <a href="#application-offline" title="Offline(1)">Offline({{offline}})</a>
+            <a href="#application-offline" title="Offline(1)">Offline({{$offline}})</a>
         </li>
     </ul>
 
     <table class="table-rows-white">
         <thead>
             <tr>
-                <th>    </th>
-                <th>    </th>
+                <th></th>
+                <th></th>
                 <th>Status</th>
                 <th>Last 24 hours</th>
                 <th>Last Week</th>
@@ -30,12 +30,14 @@
             </tr>
         </thead>
         <tbody>
-            {{#await applications}}
+            {{#await $applications}}
             <p>We are loading results...</p>
             {{then response}} 
+                {{#if response}}
                 {{#each response as value}}
                     <Item item='{{value}}' /> 
                 {{/each}} 
+                {{/if}}
             {{catch error}}
             <p>Well that's odd... An error occurred during processing your request.</p>
             {{/await}}
@@ -46,22 +48,16 @@
 
 <script>
     import api from '../services/api';
-
+    import store from '../models/RootStore';
     import Item from '../components/ApplicationListItem.html';
     import Button from '../components/Button.html';
+    import bus from '../services/dispatcher';
 
     export default {
-
+        store: () => store,
         oncreate() {
-            let promise = api.buildApplicationInsights();
-
-            promise.then(_ => {
-                this.set({ 
-                    online: 2,
-                    offline: 0
-                });
-            });
-            this.set({ applications: promise });
+            bus.requestCompiledData();
+            window.page = this;
         },
         methods: {
             addApplication() {
