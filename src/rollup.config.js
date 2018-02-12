@@ -10,41 +10,44 @@ let dev = process.env.NODE_ENV === 'development';
 
 //use reshape for HTML rendering https://reshape.ml/
 export default {
-		input: './modules/server/app/main.js',
-		output: {
-				file: './modules/server/public/js/main.js',
-				format: 'iife'
-		},
-		plugins: [
-				svelte({
-						// By default, all .html and .svelte files are compiled
-						extensions: ['.html'],
+	input: './modules/server/app/main.js',
+	output: {
+		file: './modules/server/public/js/main.js',
+		format: 'iife'
+	},
+	plugins: [
+		svelte({
+			// By default, all .html and .svelte files are compiled
+			extensions: ['.html'],
 
-						// You can restrict which files are compiled
-						// using `include` and `exclude`
-						include: './modules/server/app/**/*.html'
-				}),
-				nodeResolve({
-						jsnext: true,
-						main: true,
-						browser: true
-				}),
-				commonjs(),
-				babel({
-					  exclude: 'node_modules/**',
-						include: ['./modules/server/app/**/*.js']
-				}),
-				replace({
-						'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-						'process.env.APP_BASE_PATH': JSON.stringify(process.env.APP_BASE_PATH || ''),
-				}),
-				dev ? uglify() : {},
-				dev
-						? serve({
-									contentBase: ['./modules/server/app'],
-									open: true
-							})
-						: {},
-				dev ? livereload() : {}
-		]
+			// You can restrict which files are compiled
+			// using `include` and `exclude`
+			include: './modules/server/app/**/*.html',
+
+			// we need this for now — in v2 it'll be the default
+			store: true
+		}),
+		nodeResolve({
+			jsnext: true,
+			main: true,
+			browser: true
+		}),
+		commonjs(),
+		babel({
+			exclude: 'node_modules/**',
+			include: ['./modules/server/app/**/*.js'],
+			compact: false
+		}),
+		replace({
+			'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+			'process.env.APP_BASE_PATH': JSON.stringify(process.env.APP_BASE_PATH || ''),
+		}),
+		dev ? uglify() : {},
+		dev ? serve({
+			contentBase: ['./modules/server/app'],
+			open: true
+			})
+			: {},
+		dev ? livereload() : {}
+	]
 };
