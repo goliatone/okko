@@ -4,6 +4,62 @@ cache.applications = {};
 cache.services = {};
 cache.insights = {};
 
+function createApplication(data) {
+    return fetch('/api/application', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(res => {
+        return res.json();
+    })
+    .then(json => {
+        cache.applications[json.value.id] = json.value;
+        return json.value;
+    });
+}
+
+function updateApplication(id, data) {
+    return fetch('/api/application/' + id, {
+        method: 'PUT',
+        headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(res => {
+        return res.json();
+    })
+    .then(json => {
+        cache.applications[json.value.id] = json.value;
+        return json.value;
+    });
+}
+
+function deleteApplication(id) {
+    if(typeof id === 'object') id = id.id;
+
+    return fetch('/api/application/' + id, {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => {
+        return res.json();
+    })
+    .then(json => {
+        json = cache.applications[id];
+        delete cache.applications[id];
+        return json;
+    });
+}
+
 function getApplication(id) {
     return fetch('/api/application/' + id)
         .then(res => {
@@ -101,5 +157,8 @@ export default {
     getApplications,
     getInsightsFor,
     getServices,
+    createApplication,
+    deleteApplication,
+    updateApplication,
     buildApplicationInsights
 };
