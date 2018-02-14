@@ -101,7 +101,7 @@
         </button>
         <button on:click="submit(event)" class="btn btn-primary">
             Save
-        </button>
+        </button>   
     </div>
     </form>
 </div>
@@ -127,12 +127,14 @@
             const appid = this.get('appid');
             bus.requestApplicationById(appid);
 
-            this.store.observe('application', (app) => {
+            const setApp = this.store.observe('application', (app) => {
                 if(typeof app.then === 'function') {
                     return;
                 }
 
                 this.setAttributes(app.data);
+
+                setApp.cancel();
             });
 
             window.page = this;
@@ -142,21 +144,26 @@
                 //this should update #
                 this.set({ selected: section });
 			},
-            setAttributes(data){
+            setAttributes(data={}) {
                 let attributes = this.get('attributes') || {};
                 
                 function parseKeys(obj, path=[]) {
                     Object.keys(obj).forEach(key => {
-                        path.push(key);
+                        
                         let value = obj[key];
+                        
                         if(typeof value === 'object') {
+                            console.log('key', key)
                             return parseKeys(value, path);
                         }
+                        // path.push(key);
+                        
                         attributes.push({
-                            key, 
+                            key: key, 
                             value
                         });
                     });
+                    path = [];
                 }
                 parseKeys(data);
 
@@ -164,7 +171,9 @@
             },
             submit(event) {
                 prevent(event);
-                console.log('submit!', this.get('app'));
+                //TODO: Track changeset and send that.
+                const app = this.store.get('application');
+                bus.updateApplication(app);
             },
             cancel(event, path='/') {
                 prevent(event);
@@ -194,7 +203,6 @@
         data() {
             return {
                 selected: 'info',
-                app: {},
                 service: {
                     //application
                     //endpoint
