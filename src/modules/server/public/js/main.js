@@ -2115,8 +2115,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	}
 
 	function buildApplicationInsights() {
-		console.log('buildApplicationInsights');
-
 		var services = getServices();
 		var applications = getApplications();
 		var insights = getInsights();
@@ -5195,20 +5193,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	window.api = api;
 	window.router = router;
 
-	window.go = function (url) {
-		var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-		history.push(url);
-	};
-
-	var methods$7 = {
-		go: function go(url) {
-			var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-			history.push(url);
-		}
-	};
-
 	function oncreate$6() {
 		router.start(location, document.querySelector('#content'));
 	}
@@ -5297,7 +5281,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		}
 	}
 
-	assign(Application.prototype, methods$7, proto);
+	assign(Application.prototype, proto);
 
 	var states = bus.EVENT_TYPES;
 

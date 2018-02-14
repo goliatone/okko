@@ -94,6 +94,17 @@ function initialize(router, config) {
         });
     });
 
+    router.post('/application', function createApplication(req, res, next) {
+        const query = req.body;
+        //we should sanitize query :)
+        Application.create(query).then(result => {
+            res.send({
+                success: true,
+                value: result
+            });
+        });
+    });
+
     router.get('/application/:id', function getApplication(req, res, next) {
         const id = req.params.id;
         Application.findOne(id).then(result => {
@@ -104,7 +115,30 @@ function initialize(router, config) {
         });
     });
 
-    router.get('/application/:id/services', function getApplication(req, res, next) {
+    router.put('/application/:id', function updateApplication(req, res, next) {
+        const query = req.body;
+        const id = req.params.id;
+
+        Application.update(id, query).then(result => {
+            res.send({
+                success: true,
+                value: result
+            });
+        });
+    });
+
+    router.delete('/application/:id', function updateApplication(req, res, next) {
+        const id = req.params.id;
+
+        Application.destroy(id).then(result => {
+            res.send({
+                success: true,
+                value: result
+            });
+        });
+    });
+
+    router.get('/application/:id/services', function getApplicationServices(req, res, next) {
         const application = req.params.id;
         Service.find({application}).then(result => {
             res.send({
