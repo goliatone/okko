@@ -9,15 +9,31 @@ import history from './services/history';
 const states = bus.EVENT_TYPES;
 
 bus.requestCompiledData = () => {
-    bus.dispatch(bus.EVENT_TYPES.REQUEST_COMPILE_DATA);
+    bus.dispatch(states.REQUEST_COMPILE_DATA);
 };
 
 bus.requestApplicationById = (id) =>{
-    bus.dispatch(bus.EVENT_TYPES.REQUEST_APPLICATION_ID, {id});
+    bus.dispatch(states.REQUEST_APPLICATION_ID, {id});
+};
+
+bus.updateApplication = (application) => {
+    bus.dispatch(states.APPLICATION_UPDATE, {application});
+};
+
+bus.createApplication = (application) => {
+    bus.dispatch(states.APPLICATION_CREATE, {application});
+};
+
+bus.deleteApplication = (id) => {
+    bus.dispatch(states.APPLICATION_DELETE, {id});
+};
+
+bus.pauseApplicationMonitoring = (id) => {
+    bus.dispatch(states.APPLICATION_PAUSE, {id});
 };
 
 bus.goto = (uri, data={}) => {
-    bus.dispatch(bus.EVENT_TYPES.NAVIGATION_GOTO, {uri, data});
+    bus.dispatch(states.NAVIGATION_GOTO, {uri, data});
 };
 
 bus.handle(states.REQUEST_APPLICATION_ID, data => {
@@ -29,8 +45,49 @@ bus.handle(states.REQUEST_APPLICATION_ID, data => {
 });
 
 bus.handle(states.NAVIGATION_GOTO, data => {
-    console.log('NAVIGATION_GOTO', data);
     history.push(data.uri);
+});
+
+bus.handle(states.APPLICATION_CREATE, data => {
+    console.log('create application', getAttributes(data.application));
+
+    function getAttributes(obj) {
+        let out = {};
+        ['uuid', 'identifier', 'appId', 'environment', 'data', 'hostname'].map((attr)=>{
+            out[attr] = obj[attr];
+        });
+        return out;
+    }
+
+    const promise = api.createApplication(getAttributes(data.application));
+
+    promise.then(application => {
+        bus.goto(`/application/${application.id}`);
+    });
+});
+
+bus.handle(states.APPLICATION_DELETE, id => {
+    api.deleteApplication(id).then(_ => {
+        bus.goto('/');
+    });
+});
+
+bus.handle(states.APPLICATION_UPDATE, data => {
+    console.log('update application', data);
+
+    function getAttributes(obj) {
+        let out = {};
+        ['uuid', 'identifier', 'appId', 'environment', 'data', 'hostname'].map((attr)=>{
+            out[attr] = obj[attr];
+        });
+        return out;
+    }
+
+    const promise = api.updateApplication(data.id, getAttributes(data.application));
+
+    promise.then(application => {
+        bus.goto(`/application/${application.id}`);
+    });
 });
 
 bus.handle(states.REQUEST_COMPILE_DATA, _ => {
@@ -50,6 +107,10 @@ bus.handle(states.REQUEST_COMPILE_DATA, _ => {
     });
 
     store.set({applications: promise});
+});
+
+bus.handle(states.APPLICATION_PAUSE, data => {
+    console.warn('pause application', data);
 });
 
 const app = new App({
