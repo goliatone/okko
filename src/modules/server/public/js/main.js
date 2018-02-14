@@ -238,6 +238,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		_unmount: _unmount
 	};
 
+	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
 	function commonjsRequire() {
 		throw new Error('Dynamic requires are not currently supported by rollup-plugin-commonjs');
 	}
@@ -2063,6 +2065,56 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	cache.services = {};
 	cache.insights = {};
 
+	function createApplication(data) {
+		return fetch('/api/application', {
+			method: 'POST',
+			headers: {
+				'Accept': 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data)
+		}).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			cache.applications[json.value.id] = json.value;
+			return json.value;
+		});
+	}
+
+	function updateApplication(id, data) {
+		return fetch('/api/application/' + id, {
+			method: 'PUT',
+			headers: {
+				'Accept': 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data)
+		}).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			cache.applications[json.value.id] = json.value;
+			return json.value;
+		});
+	}
+
+	function deleteApplication(id) {
+		if ((typeof id === 'undefined' ? 'undefined' : _typeof2(id)) === 'object') id = id.id;
+
+		return fetch('/api/application/' + id, {
+			method: 'DELETE',
+			headers: {
+				'Accept': 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			}
+		}).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			json = cache.applications[id];
+			delete cache.applications[id];
+			return json;
+		});
+	}
+
 	function getApplication(id) {
 		return fetch('/api/application/' + id).then(function (res) {
 			return res.json();
@@ -2156,6 +2208,9 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		getApplications: getApplications,
 		getInsightsFor: getInsightsFor,
 		getServices: getServices,
+		createApplication: createApplication,
+		deleteApplication: deleteApplication,
+		updateApplication: updateApplication,
 		buildApplicationInsights: buildApplicationInsights
 	};
 
@@ -2488,6 +2543,238 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		application: {}
 	});
 
+	var keypath = createCommonjsModule(function (module, exports) {
+		/*
+   * gkeypath
+   * https://github.com/goliatone/gkeypath
+   * Created with gbase.
+   * Copyright (c) 2014 goliatone
+   * Licensed under the MIT license.
+   */
+		/* jshint strict: false, plusplus: true */
+		/*global define: false, require: false, module: false, exports: false */
+		(function (root, name, deps, factory) {
+			if (typeof deps === 'function') {
+				factory = deps;
+				deps = [];
+			}
+
+			{
+				module.exports = factory.apply(root, deps.map(commonjsRequire));
+			}
+		})(commonjsGlobal, 'keypath', function () {
+
+			var Keypath = {};
+
+			Keypath.VERSION = '0.4.1';
+
+			Keypath.set = function (target, path, value) {
+				if (!target) return undefined;
+
+				var keys = path.split('.');
+				path = keys.pop();
+				keys.forEach(function (prop) {
+					if (!target[prop]) target[prop] = {};
+					target = target[prop];
+				});
+
+				Keypath._set(target, path, value); //target[path] = value;
+
+				return target;
+			};
+
+			Keypath.get = function (target, path, defaultValue) {
+				if (!target || !path) return false;
+
+				path = path.split('.');
+				var l = path.length,
+				    i = 0,
+				    p = '';
+				for (; i < l; ++i) {
+					p = path[i];
+					if (target[p] !== undefined) target = target[p];else return Keypath._get(defaultValue);
+				}
+				return Keypath._get(target);
+			};
+
+			Keypath.has = function (target, path) {
+				return this.get(target, path, '#$#NFV#$#') !== '#$#NFV#$#';
+			};
+
+			Keypath.assert = function (target, path, message) {
+				message = message || Keypath.DEFAULTS.assertionMessage;
+				var value = this.get(target, path, message);
+
+				if (value !== message) return value;
+
+				this.onError(message, path);
+
+				return undefined;
+			};
+			//TODO: we might want to reverse the order, and have a different
+			//signature. target, propName, inject
+			Keypath.wrap = function (target, inject, dataPropName) {
+				var wrapper = new Wrapper(target, dataPropName);
+
+				if (Proxy) {
+					wrapper = new Proxy(wrapper, {
+						get: function get(receiver, prop) {
+							if (typeof receiver[prop] === 'function') {
+								return function () {
+									for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+										args[_key2] = arguments[_key2];
+									}
+
+									return Reflect.apply(receiver[prop], receiver, args);
+								};
+							}
+							var out = receiver._target[prop];
+							if (out === undefined && receiver.hasOwnProperty(prop)) out = receiver[prop];
+							if (out === undefined && prop === dataPropName) out = receiver._target;
+							return out;
+						},
+						set: function set(receiver, prop, value) {
+							receiver._target[prop] = value;
+						}
+					});
+				}
+
+				if (!inject) return wrapper;
+
+				if (typeof inject === 'function') inject(target, wrapper);
+				if (typeof inject === 'string') Keypath.set(target, inject, wrapper);
+
+				return wrapper;
+			};
+
+			Keypath.onError = console.error.bind(console);
+
+			///////////////////////////////////////////////////
+			// PRIVATE METHODS
+			///////////////////////////////////////////////////
+			Keypath._get = function (value) {
+				return typeof value === 'function' ? value() : value;
+			};
+
+			Keypath._set = function (src, method, val) {
+				if (typeof src[method] === 'function') return src[method].call(src, val);
+				return src[method] = val;
+			};
+
+			///////////////////////////////////////////////////
+			// WRAPPER Internal Class
+			///////////////////////////////////////////////////
+			/**
+    * Wrapper Constructor
+    * @param {Object} target Object to be wrapped
+    */
+
+			function Wrapper(target, prop) {
+				prop = prop || 'target';
+				this[prop] = this._target = target;
+			}
+
+			Wrapper.prototype.set = function (path, value) {
+				return Keypath.set(this._target, path, value);
+			};
+
+			Wrapper.prototype.get = function (path, defaultValue) {
+				return Keypath.get(this._target, path, defaultValue);
+			};
+
+			Wrapper.prototype.has = function (path) {
+				return Keypath.has(this._target, path);
+			};
+
+			Keypath.Wrapper = Wrapper;
+
+			return Keypath;
+		});
+	});
+
+	var EVENT_TYPES = {
+		REQUEST_INSIGHTS: 'REQUEST_INSIGHTS',
+		REQUEST_SERVICES: 'REQUEST_SERVICES',
+		REQUEST_APPLICATION_ID: 'REQUEST_APPLICATION_ID',
+		REQUEST_APPLICATIONS: 'REQUEST_APPLICATIONS',
+		REQUEST_INSIGHT_ID: 'REQUEST_INSIGHT_ID',
+		/**
+   * Build all data to be displayed in home
+   * page.
+   */
+		REQUEST_COMPILE_DATA: 'REQUEST_COMPILE_DATA',
+
+		NAVIGATION_GOTO: 'NAVIGATION_GOTO',
+
+		APPLICATION_VIEW: 'APPLICATION_VIEW',
+
+		APPLICATION_NEW: 'APPLICATION_NEW',
+		APPLICATION_CREATE: 'APPLICATION_CREATE',
+
+		APPLICATION_EDIT: 'APPLICATION_EDIT',
+		APPLICATION_UPDATE: 'APPLICATION_UPDATE',
+
+		APPLICATION_DELETE: 'APPLICATION_DELETE',
+		APPLICATION_PAUSE: 'APPLICATION_PAUSE'
+	};
+
+	var _handlers = {};
+
+	var bus = {
+
+		EVENT_TYPES: EVENT_TYPES,
+
+		handle: function handle(eventName, handler) {
+
+			if (arguments.length === 1) {
+				handler = eventName.handler;
+				eventName = eventName.type;
+			}
+
+			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
+			handlers.push(handler);
+
+			return {
+				cancel: function cancel() {
+					var index = handlers.indexOf(handler);
+					if (~index) handlers.splice(index, 1);
+				}
+			};
+		},
+		dispatch: function dispatch(eventName) {
+			var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+
+			if ((typeof eventName === 'undefined' ? 'undefined' : _typeof2(eventName)) === 'object') {
+				data = eventName;
+				eventName = data.type;
+			} else if (!data.type) {
+				data.type = eventName;
+			}
+
+			var handlers = eventName in _handlers && _handlers[eventName].slice();
+
+			if (!handlers) {
+				return console.log('No handlers for %s', eventName);
+			}
+
+			for (var i = 0; i < handlers.length; i += 1) {
+				handlers[i].call(this, data);
+			}
+		},
+		cancel: function cancel(eventName, handler) {
+
+			if (arguments.length === 1) {
+				handler = eventName.handler;
+				eventName = eventName.type;
+			}
+
+			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
+			var index = handlers.indexOf(handler);
+			if (~index) handlers.splice(index, 1);
+		}
+	};
+
 	/* modules/server/app/components/ApplicationListItem.html generated by Svelte v1.54.2 */
 	function status(online) {
 		return online ? 'online' : 'offline';
@@ -2506,8 +2793,14 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		};
 	}
 
-	function getStatus(online) {
+	function getStatus() {
+		var online = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'offline';
+
 		return online ? 'online' : 'offline';
+	}
+
+	function getKey(obj, path, def) {
+		return keypath.get(obj, path, def);
 	}
 
 	function formatDowntime(downtime) {
@@ -2531,20 +2824,26 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 			if (event && event.preventDefault) {
 				event.preventDefault();
 			}
-
+			var appid = this.get('item').id;
 			switch (_action) {
 				case 'edit':
-					var appid = this.get('item').id;
-					history.push('/application/' + appid + '/edit');
+					bus.goto('/application/' + appid + '/edit');
+					break;
+				case 'delete':
+					bus.deleteApplication(appid);
+					break;
+				case 'pause':
+					bus.pauseApplicationMonitoring(appid);
 					break;
 			}
 		}
 	};
 
 	function oncreate() {
-		console.log('oncreate: application list item');
-		// this.observe('item', item => {
-		//     console.log('item', item);
+		// document.addEventListener('click', (e) => { 
+		//     console.log(e.target)
+		//     console.log('dropdonw!!!', this.get('item').appId);
+		//     this.set({dropdown: ''});
 		// });
 	}
 
@@ -2557,19 +2856,19 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		    td_2,
 		    text_5,
 		    td_3,
-		    text_6_value = state.item.insights.status.last24Hours.uptime,
+		    text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0),
 		    text_6,
 		    text_7,
 		    td_4,
-		    text_8_value = state.item.insights.status.lastWeek.uptime,
+		    text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0),
 		    text_8,
 		    text_9,
 		    td_5,
-		    text_10_value = formatDowntime(state.item.insights.status.lastWeek.downtime),
+		    text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)),
 		    text_10,
 		    text_11,
 		    td_6,
-		    text_12_value = state.item.insights.status.lastWeek.numberOutages,
+		    text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0),
 		    text_12,
 		    text_13,
 		    td_7,
@@ -2701,19 +3000,19 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				if (changed.item) link_changes.text = state.item.appId;
 				link._set(link_changes);
 
-				if (changed.item && text_6_value !== (text_6_value = state.item.insights.status.last24Hours.uptime)) {
+				if (changed.item && text_6_value !== (text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0))) {
 					text_6.data = text_6_value;
 				}
 
-				if (changed.item && text_8_value !== (text_8_value = state.item.insights.status.lastWeek.uptime)) {
+				if (changed.item && text_8_value !== (text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0))) {
 					text_8.data = text_8_value;
 				}
 
-				if (changed.item && text_10_value !== (text_10_value = formatDowntime(state.item.insights.status.lastWeek.downtime))) {
+				if (changed.item && text_10_value !== (text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)))) {
 					text_10.data = text_10_value;
 				}
 
-				if (changed.item && text_12_value !== (text_12_value = state.item.insights.status.lastWeek.numberOutages)) {
+				if (changed.item && text_12_value !== (text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0))) {
 					text_12.data = text_12_value;
 				}
 
@@ -2874,82 +3173,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	}
 
 	assign(Button.prototype, methods$2, proto);
-
-	var EVENT_TYPES = {
-		REQUEST_INSIGHTS: 'REQUEST_INSIGHTS',
-		REQUEST_SERVICES: 'REQUEST_SERVICES',
-		REQUEST_APPLICATION_ID: 'REQUEST_APPLICATION_ID',
-		REQUEST_APPLICATIONS: 'REQUEST_APPLICATIONS',
-		REQUEST_INSIGHT_ID: 'REQUEST_INSIGHT_ID',
-		/**
-   * Build all data to be displayed in home
-   * page.
-   */
-		REQUEST_COMPILE_DATA: 'REQUEST_COMPILE_DATA',
-
-		NAVIGATION_GOTO: 'NAVIGATION_GOTO',
-
-		APPLICATION_NEW: 'APPLICATION_NEW',
-		APPLICATION_VIEW: 'APPLICATION_VIEW',
-		APPLICATION_EDIT: 'APPLICATION_EDIT'
-	};
-
-	var _handlers = {};
-
-	var bus = {
-
-		EVENT_TYPES: EVENT_TYPES,
-
-		handle: function handle(eventName, handler) {
-
-			if (arguments.length === 1) {
-				handler = eventName.handler;
-				eventName = eventName.type;
-			}
-
-			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
-			handlers.push(handler);
-
-			return {
-				cancel: function cancel() {
-					var index = handlers.indexOf(handler);
-					if (~index) handlers.splice(index, 1);
-				}
-			};
-		},
-		dispatch: function dispatch(eventName) {
-			var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-
-			if ((typeof eventName === 'undefined' ? 'undefined' : _typeof2(eventName)) === 'object') {
-				data = eventName;
-				eventName = data.type;
-			} else if (!data.type) {
-				data.type = eventName;
-			}
-
-			var handlers = eventName in _handlers && _handlers[eventName].slice();
-
-			if (!handlers) {
-				return console.log('No handlers for %s', eventName);
-			}
-
-			for (var i = 0; i < handlers.length; i += 1) {
-				handlers[i].call(this, data);
-			}
-		},
-		cancel: function cancel(eventName, handler) {
-
-			if (arguments.length === 1) {
-				handler = eventName.handler;
-				eventName = eventName.type;
-			}
-
-			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
-			var index = handlers.indexOf(handler);
-			if (~index) handlers.splice(index, 1);
-		}
-	};
 
 	/* modules/server/app/pages/Home.html generated by Svelte v1.54.2 */
 	function data$3() {
@@ -4024,7 +4247,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	/* modules/server/app/pages/ApplicationAdd.html generated by Svelte v1.54.2 */
 	function identity(item) {
 		if (!item.appId && !item.hostname && !item.environment) return '';
-		return item.appId + '.' + item.environment + '@' + item.hostname;
+		return (item.appId + '.' + item.environment + '@' + item.hostname).toLowerCase();
 	}
 
 	function data$6() {
@@ -4047,14 +4270,14 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 			}
 
 			if (path) {
-				history.push(path);
+				bus.goto(path);
 			}
 		},
 		save: function save(event, item) {
 			if (event && event.preventDefault) {
 				event.preventDefault();
 			}
-			console.log('save', item);
+			bus.createApplication(item);
 		}
 	};
 
@@ -4366,7 +4589,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	function data$7() {
 		return {
 			selected: 'info',
-			app: {},
 			service: {
 				//application
 				//endpoint
@@ -4407,23 +4629,30 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 			//this should update #
 			this.set({ selected: section });
 		},
-		setAttributes: function setAttributes(data) {
+		setAttributes: function setAttributes() {
+			var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
 			var attributes = this.get('attributes') || {};
 
 			function parseKeys(obj) {
 				var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
 				Object.keys(obj).forEach(function (key) {
-					path.push(key);
+
 					var value = obj[key];
+
 					if ((typeof value === 'undefined' ? 'undefined' : _typeof2(value)) === 'object') {
+						console.log('key', key);
 						return parseKeys(value, path);
 					}
+					// path.push(key);
+
 					attributes.push({
 						key: key,
 						value: value
 					});
 				});
+				path = [];
 			}
 			parseKeys(data);
 
@@ -4431,7 +4660,9 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		},
 		submit: function submit(event) {
 			prevent(event);
-			console.log('submit!', this.get('app'));
+			//TODO: Track changeset and send that.
+			var app = this.store.get('application');
+			bus.updateApplication(app);
 		},
 		cancel: function cancel(event) {
 			var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '/';
@@ -4450,12 +4681,14 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		var appid = this.get('appid');
 		bus.requestApplicationById(appid);
 
-		this.store.observe('application', function (app) {
+		var setApp = this.store.observe('application', function (app) {
 			if (typeof app.then === 'function') {
 				return;
 			}
 
 			_this3.setAttributes(app.data);
+
+			setApp.cancel();
 		});
 
 		window.page = this;
@@ -5286,17 +5519,33 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	var states = bus.EVENT_TYPES;
 
 	bus.requestCompiledData = function () {
-		bus.dispatch(bus.EVENT_TYPES.REQUEST_COMPILE_DATA);
+		bus.dispatch(states.REQUEST_COMPILE_DATA);
 	};
 
 	bus.requestApplicationById = function (id) {
-		bus.dispatch(bus.EVENT_TYPES.REQUEST_APPLICATION_ID, { id: id });
+		bus.dispatch(states.REQUEST_APPLICATION_ID, { id: id });
+	};
+
+	bus.updateApplication = function (application) {
+		bus.dispatch(states.APPLICATION_UPDATE, { application: application });
+	};
+
+	bus.createApplication = function (application) {
+		bus.dispatch(states.APPLICATION_CREATE, { application: application });
+	};
+
+	bus.deleteApplication = function (id) {
+		bus.dispatch(states.APPLICATION_DELETE, { id: id });
+	};
+
+	bus.pauseApplicationMonitoring = function (id) {
+		bus.dispatch(states.APPLICATION_PAUSE, { id: id });
 	};
 
 	bus.goto = function (uri) {
 		var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
 
-		bus.dispatch(bus.EVENT_TYPES.NAVIGATION_GOTO, { uri: uri, data: data });
+		bus.dispatch(states.NAVIGATION_GOTO, { uri: uri, data: data });
 	};
 
 	bus.handle(states.REQUEST_APPLICATION_ID, function (data) {
@@ -5308,8 +5557,49 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	});
 
 	bus.handle(states.NAVIGATION_GOTO, function (data) {
-		console.log('NAVIGATION_GOTO', data);
 		history.push(data.uri);
+	});
+
+	bus.handle(states.APPLICATION_CREATE, function (data) {
+		console.log('create application', getAttributes(data.application));
+
+		function getAttributes(obj) {
+			var out = {};
+			['uuid', 'identifier', 'appId', 'environment', 'data', 'hostname'].map(function (attr) {
+				out[attr] = obj[attr];
+			});
+			return out;
+		}
+
+		var promise = api.createApplication(getAttributes(data.application));
+
+		promise.then(function (application) {
+			bus.goto('/application/' + application.id);
+		});
+	});
+
+	bus.handle(states.APPLICATION_DELETE, function (id) {
+		api.deleteApplication(id).then(function (_) {
+			bus.goto('/');
+		});
+	});
+
+	bus.handle(states.APPLICATION_UPDATE, function (data) {
+		console.log('update application', data);
+
+		function getAttributes(obj) {
+			var out = {};
+			['uuid', 'identifier', 'appId', 'environment', 'data', 'hostname'].map(function (attr) {
+				out[attr] = obj[attr];
+			});
+			return out;
+		}
+
+		var promise = api.updateApplication(data.id, getAttributes(data.application));
+
+		promise.then(function (application) {
+			bus.goto('/application/' + application.id);
+		});
 	});
 
 	bus.handle(states.REQUEST_COMPILE_DATA, function (_) {
@@ -5329,6 +5619,10 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		});
 
 		_store.set({ applications: promise });
+	});
+
+	bus.handle(states.APPLICATION_PAUSE, function (data) {
+		console.warn('pause application', data);
 	});
 
 	var app = new Application({
