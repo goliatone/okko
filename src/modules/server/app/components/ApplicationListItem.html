@@ -10,13 +10,14 @@
         <span class="tag tag-status tag-big"></span>
     </td>
 
-    <td class="percentage">{{item.insights.status.last24Hours.uptime}}</td>
-    <td class="percentage">{{item.insights.status.lastWeek.uptime}}</td>
-    <td>{{formatDowntime(item.insights.status.lastWeek.downtime)}}</td>
-    <td>{{item.insights.status.lastWeek.numberOutages}}</td>
+    <td class="percentage">{{getKey(item, 'insights.status.last24Hours.uptime', 0)}}</td>
+    <td class="percentage">{{getKey(item, 'insights.status.lastWeek.uptime', 0)}}</td>
+    <td>{{formatDowntime(getKey(item, 'insights.status.lastWeek.downtime', 0))}}</td>
+    <td>{{getKey(item, 'insights.status.lastWeek.numberOutages', 0)}}</td>
 
     <td class="dropdown-container td-center">
-        <button on:click="set({dropdown:'active'})" class="btn btn-icon dropdown-toggle {{dropdown}}" role="button">
+        <button on:click="set({dropdown: 'active'})" 
+                class="btn btn-icon dropdown-toggle {{dropdown}}" role="button">
             <span class="icon-more"></span>
         </button>
         <nav class="dropdown-menu dm-overlay dm-white">
@@ -42,14 +43,16 @@
 </tr>
 
 <script>
+    import Keypath from 'gkeypath';
     import Link from './Link.html';
-    import history from '../services/history';
+    import bus from '../services/dispatcher';
 
     export default {
         oncreate() {
-            console.log('oncreate: application list item');
-            // this.observe('item', item => {
-            //     console.log('item', item);
+            // document.addEventListener('click', (e) => { 
+            //     console.log(e.target)
+            //     console.log('dropdonw!!!', this.get('item').appId);
+            //     this.set({dropdown: ''});
             // });
         },
         methods: {
@@ -57,18 +60,26 @@
                 if(event && event.preventDefault) {
                     event.preventDefault();
                 }
-
+                const appid = this.get('item').id;
                 switch(action) {
                     case 'edit': 
-                        const appid = this.get('item').id;
-                        history.push(`/application/${appid}/edit`);
-                    break;
+                        bus.goto(`/application/${appid}/edit`);
+                        break;
+                    case 'delete':
+                        bus.deleteApplication(appid);
+                        break;
+                    case 'pause':
+                        bus.pauseApplicationMonitoring(appid);
+                        break;
                 }
             }
         },
         helpers: {
-            getStatus(online) {
+            getStatus(online='offline') {
                 return online ? 'online' : 'offline';
+            },
+            getKey(obj, path, def) {
+                return Keypath.get(obj, path, def);
             },
             formatDowntime(downtime) {
                 function pad(n, z) {
