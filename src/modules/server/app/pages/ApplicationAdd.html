@@ -57,7 +57,8 @@
 </div>
 
 <script>
-    import history from '../services/history';
+    import bus from '../services/dispatcher';
+
     export default {
         oncreate(){
             this.observe('identity', (value, old) => {
@@ -69,24 +70,24 @@
         computed: {
             identity: (item) => {
                 if(!item.appId && !item.hostname && !item.environment) return '';
-                return item.appId + '.' + item.environment + '@' + item.hostname;
+                return (item.appId + '.' + item.environment + '@' + item.hostname).toLowerCase();
             }
         },
         methods: {
-            cancel(event, path='/'){
+            cancel(event, path='/') {
                 if (event && event.preventDefault) {
                     event.preventDefault();
                 }
 
                 if (path) {
-                    history.push(path);
+                    bus.goto(path);
                 }
             },
             save(event, item) {
                 if (event && event.preventDefault) {
                     event.preventDefault();
                 }
-                console.log('save', item);
+                bus.createApplication(item);
             }
         },
         data() {
@@ -95,7 +96,7 @@
                     appId: '',
                     hostname: '',
                     identifier: '',
-                    environment: ''
+                    environment: '',
                 }
             };
         }
