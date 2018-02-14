@@ -431,6 +431,13 @@ article {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0; }
 
+/* so dropdown click events get captured */
+.dropdown-menu {
+  pointer-events: none; }
+
+.dropdown-toggle.active + .dropdown-menu {
+  pointer-events: initial; }
+
 /* dropdown style */
 .dropdown-menu {
   border-radius: 3px;
@@ -633,18 +640,18 @@ article {
 .table-cols-mixed {
   width: 100%;
   padding: 10px 13px; }
-  .table-cols-mixed td {
-    padding-bottom: 12px; }
-    .table-cols-mixed td:first-child {
-      padding-right: 44px; }
+  .table-cols-mixed td:first-child {
+    padding-right: 44px; }
 
 .t-mixed-title {
   color: #002827; }
+  .t-mixed-title td {
+    padding-bottom: 12px; }
 
-.t-mixed-details:last child {
+.t-mixed-details td {
   padding-bottom: 14px; }
-.t-mixed-details td:first-child {
-  text-align: right; }
+  .t-mixed-details td:first-child {
+    text-align: right; }
 
 /* ----------------------------- TABLE CLASSES */
 .td-center > button {
