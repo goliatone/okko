@@ -1,4 +1,6 @@
 'use strict';
+import {ApplicationModel} from '../models/ApplicationModel';
+
 const cache = {};
 cache.applications = {};
 cache.services = {};
@@ -17,7 +19,9 @@ function createApplication(data) {
         return res.json();
     })
     .then(json => {
-        cache.applications[json.value.id] = json.value;
+        let vo = json.value;
+        cache.applications[json.value.id] = vo;
+        let model = new ApplicationModel({vo});
         return json.value;
     });
 }
@@ -66,8 +70,10 @@ function getApplication(id) {
             return res.json();
         })
         .then(json => {
-            cache.applications[json.value.id] = json.value;
-            return json.value;
+            let vo = json.value;
+            cache.applications[json.value.id] = vo;
+            let model = new ApplicationModel({vo});
+            return model;
         });
 }
 
@@ -80,7 +86,9 @@ function getApplications() {
             
             json.value.map(app => {
                 console.log('id', app.id);
+                let model = new ApplicationModel({vo:app});
                 cache.applications[app.id] = app;
+                return model;
             });
 
             return json;
