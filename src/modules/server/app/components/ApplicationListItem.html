@@ -16,9 +16,8 @@
     <td>{{getKey(item, 'insights.status.lastWeek.numberOutages', 0)}}</td>
 
     <td class="dropdown-container td-center">
-        <button on:click="set({dropdown: 'active'})" 
-                class="btn btn-icon dropdown-toggle {{dropdown}}" role="button">
-            <span class="icon-more"></span>
+        <button class="btn btn-icon dropdown-toggle {{dropdown}}" role="button">
+            <span ref:btn class="icon-more"></span>
         </button>
         <nav class="dropdown-menu dm-overlay dm-white">
             <ul>
@@ -49,11 +48,17 @@
 
     export default {
         oncreate() {
-            // document.addEventListener('click', (e) => { 
-            //     console.log(e.target)
-            //     console.log('dropdonw!!!', this.get('item').appId);
-            //     this.set({dropdown: ''});
-            // });
+            const btn = this.refs.btn;
+            
+            const activeMenu = (e) => {
+                this.set({dropdown: e.target === btn ? 'active' : ''});
+            };
+
+            this.on('destroy', () => {
+                document.removeEventListener('click', activeMenu);
+            });
+
+            document.addEventListener('click', activeMenu);
         },
         methods: {
             action: function(event, action) {
@@ -61,6 +66,7 @@
                     event.preventDefault();
                 }
                 const appid = this.get('item').id;
+                console.log('action', action);
                 switch(action) {
                     case 'edit': 
                         bus.goto(`/application/${appid}/edit`);
