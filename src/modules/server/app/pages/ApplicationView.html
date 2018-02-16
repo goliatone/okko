@@ -62,7 +62,7 @@
                         </tr>
                         <tr class="t-mixed-details">
                             <td>URL:</td>
-                            <td>http://hotdesk.example.net/api/health</td>
+                            <td>{{$application.appId}}</td>
                         </tr>
                         <tr class="t-mixed-title">
                             <td>REPL</td>
@@ -129,6 +129,12 @@
             const appid = this.get('appid');
             bus.requestApplicationById(appid);
 
+            // this.store.observe('application', (app)=>{
+            //     if(!app) return console.log('boooooo');
+            //     if(app instanceof Promise) return;
+            //     console.log(app.sayHello());
+            // });
+
             window.page = this;
         },
         components: {
@@ -136,7 +142,7 @@
             Chart,
         },
         methods: {
-            select(section){
+            select(section) {
 			  this.set({selected:section});
 			},
         },

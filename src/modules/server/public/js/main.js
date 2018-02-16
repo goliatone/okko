@@ -4,11 +4,11 @@ var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = [
 
 var _typeof2 = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 (function () {
 	'use strict';
@@ -2060,6 +2060,108 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		};
 	};
 
+	var extend = createCommonjsModule(function (module, exports) {
+		/*
+   * gextend
+   * https://github.com/goliatone/gextend
+   * Created with gbase.
+   * Copyright (c) 2014 goliatone
+   * Licensed under the MIT license.
+   */
+		/* jshint strict: false, plusplus: true */
+		/*global define: false, require: false, module: false, exports: false */
+		(function (root, name, deps, factory) {
+			if (typeof deps === 'function') {
+				factory = deps;
+				deps = [];
+			}
+
+			{
+				module.exports = factory.apply(root, deps.map(commonjsRequire));
+			}
+		})(commonjsGlobal, "extend", function () {
+			/**
+    * Extend method.
+    * @param  {Object} target Source object
+    * @return {Object}        Resulting object from
+    *                         extending target to params.
+    */
+			var _extend = function extend(target) {
+				var sources = [].slice.call(arguments, 1);
+
+				sources.forEach(function (source) {
+					if (!source) return;
+					for (var property in source) {
+						if (source[property] && source[property].constructor && source[property].constructor === Object) {
+							target[property] = target[property] || {};
+							target[property] = extend(target[property], source[property]);
+						} else target[property] = source[property];
+					}
+				});
+				return target;
+			};
+
+			_extend.VERSION = '0.3.1';
+
+			return _extend;
+		});
+	});
+
+	var gextend = extend;
+
+	var ServiceModel = function () {
+		function ServiceModel(data) {
+			_classCallCheck(this, ServiceModel);
+
+			if (data.vo) {
+				this.fromVO(data.vo);
+			}
+		}
+
+		_createClass(ServiceModel, [{
+			key: 'fromVO',
+			value: function fromVO(vo) {
+				console.log('VO', vo);
+				gextend(this, vo);
+			}
+		}]);
+
+		return ServiceModel;
+	}();
+
+	var ApplicationModel = function () {
+		function ApplicationModel(data) {
+			_classCallCheck(this, ApplicationModel);
+
+			if (data.vo) {
+				this.fromVO(data.vo);
+			}
+		}
+
+		_createClass(ApplicationModel, [{
+			key: 'fromVO',
+			value: function fromVO(vo) {
+				console.log('VO', vo);
+				gextend(this, vo);
+			}
+		}, {
+			key: 'sayHello',
+			value: function sayHello() {
+				return 'Hello ' + this.appId;
+			}
+		}, {
+			key: 'service',
+			set: function set(vo) {
+				this._service = new ServiceModel({ vo: vo });
+			},
+			get: function get() {
+				return this._service;
+			}
+		}]);
+
+		return ApplicationModel;
+	}();
+
 	var cache = {};
 	cache.applications = {};
 	cache.services = {};
@@ -2076,7 +2178,9 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		}).then(function (res) {
 			return res.json();
 		}).then(function (json) {
-			cache.applications[json.value.id] = json.value;
+			var vo = json.value;
+			cache.applications[json.value.id] = vo;
+			var model = new ApplicationModel({ vo: vo });
 			return json.value;
 		});
 	}
@@ -2119,8 +2223,10 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		return fetch('/api/application/' + id).then(function (res) {
 			return res.json();
 		}).then(function (json) {
-			cache.applications[json.value.id] = json.value;
-			return json.value;
+			var vo = json.value;
+			cache.applications[json.value.id] = vo;
+			var model = new ApplicationModel({ vo: vo });
+			return model;
 		});
 	}
 
@@ -2131,7 +2237,9 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 			json.value.map(function (app) {
 				console.log('id', app.id);
+				var model = new ApplicationModel({ vo: app });
 				cache.applications[app.id] = app;
+				return model;
 			});
 
 			return json;
@@ -2825,6 +2933,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				event.preventDefault();
 			}
 			var appid = this.get('item').id;
+			console.log('action', _action);
 			switch (_action) {
 				case 'edit':
 					bus.goto('/application/' + appid + '/edit');
@@ -2840,11 +2949,19 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	};
 
 	function oncreate() {
-		// document.addEventListener('click', (e) => { 
-		//     console.log(e.target)
-		//     console.log('dropdonw!!!', this.get('item').appId);
-		//     this.set({dropdown: ''});
-		// });
+		var _this2 = this;
+
+		var btn = this.refs.btn;
+
+		var activeMenu = function activeMenu(e) {
+			_this2.set({ dropdown: e.target === btn ? 'active' : '' });
+		};
+
+		this.on('destroy', function () {
+			document.removeEventListener('click', activeMenu);
+		});
+
+		document.addEventListener('click', activeMenu);
 	}
 
 	function create_main_fragment$3(state, component) {
@@ -2873,6 +2990,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		    text_13,
 		    td_7,
 		    button,
+		    span_2,
 		    button_class_value,
 		    text_15,
 		    nav,
@@ -2891,18 +3009,14 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		});
 
 		function click_handler(event) {
-			component.set({ dropdown: 'active' });
-		}
-
-		function click_handler_1(event) {
 			component.action(event, 'delete');
 		}
 
-		function click_handler_2(event) {
+		function click_handler_1(event) {
 			component.action(event, 'edit');
 		}
 
-		function click_handler_3(event) {
+		function click_handler_2(event) {
 			component.action(event, 'pause');
 		}
 
@@ -2932,7 +3046,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				text_13 = createText("\n\n    ");
 				td_7 = createElement("td");
 				button = createElement("button");
-				button.innerHTML = "<span class=\"icon-more\"></span>";
+				span_2 = createElement("span");
 				text_15 = createText("\n        ");
 				nav = createElement("nav");
 				ul = createElement("ul");
@@ -2949,15 +3063,15 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				td.className = "td-tight";
 				td_3.className = "percentage";
 				td_4.className = "percentage";
+				span_2.className = "icon-more";
 				button.className = button_class_value = "btn btn-icon dropdown-toggle " + state.dropdown;
 				setAttribute(button, "role", "button");
-				addListener(button, "click", click_handler);
 				li.className = "container-icon";
-				addListener(li, "click", click_handler_1);
+				addListener(li, "click", click_handler);
 				li_1.className = "container-icon";
-				addListener(li_1, "click", click_handler_2);
+				addListener(li_1, "click", click_handler_1);
 				li_2.className = "container-icon";
-				addListener(li_2, "click", click_handler_3);
+				addListener(li_2, "click", click_handler_2);
 				nav.className = "dropdown-menu dm-overlay dm-white";
 				td_7.className = "dropdown-container td-center";
 				tr.dataset.status = tr_data_status_value = getStatus(state.item.online);
@@ -2986,6 +3100,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				appendNode(text_13, tr);
 				appendNode(td_7, tr);
 				appendNode(button, td_7);
+				appendNode(span_2, button);
+				component.refs.btn = span_2;
 				appendNode(text_15, td_7);
 				appendNode(nav, td_7);
 				appendNode(ul, nav);
@@ -3031,16 +3147,17 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 			d: function destroy$$1() {
 				link.destroy(false);
-				removeListener(button, "click", click_handler);
-				removeListener(li, "click", click_handler_1);
-				removeListener(li_1, "click", click_handler_2);
-				removeListener(li_2, "click", click_handler_3);
+				if (component.refs.btn === span_2) component.refs.btn = null;
+				removeListener(li, "click", click_handler);
+				removeListener(li_1, "click", click_handler_1);
+				removeListener(li_2, "click", click_handler_2);
 			}
 		};
 	}
 
 	function ApplicationListItem(options) {
 		init(this, options);
+		this.refs = {};
 		this._state = assign(data$1(), options.data);
 		this._recompute({ online: 1 }, this._state);
 
@@ -3865,6 +3982,12 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		var appid = this.get('appid');
 		bus.requestApplicationById(appid);
 
+		// this.store.observe('application', (app)=>{
+		//     if(!app) return console.log('boooooo');
+		//     if(app instanceof Promise) return;
+		//     console.log(app.sayHello());
+		// });
+
 		window.page = this;
 	}
 
@@ -3945,6 +4068,23 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		    hr,
 		    text_48,
 		    table_1,
+		    tbody_1,
+		    tr_6,
+		    text_51,
+		    tr_7,
+		    td_13,
+		    text_53,
+		    td_14,
+		    text_54_value = state.$application.appId,
+		    text_54,
+		    text_56,
+		    tr_8,
+		    text_59,
+		    tr_9,
+		    text_64,
+		    tr_10,
+		    text_67,
+		    tr_11,
 		    text_75,
 		    div_3,
 		    section_class_value;
@@ -4047,7 +4187,28 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				hr = createElement("hr");
 				text_48 = createText("\n                ");
 				table_1 = createElement("table");
-				table_1.innerHTML = "<tbody><tr class=\"t-mixed-title\"><td>Health</td></tr>\n                        <tr class=\"t-mixed-details\"><td>URL:</td>\n                            <td>http://hotdesk.example.net/api/health</td></tr>\n                        <tr class=\"t-mixed-title\"><td>REPL</td></tr>\n                        <tr class=\"t-mixed-details\"><td>Port:</td>\n                            <td>4567</td></tr>\n                        <tr class=\"t-mixed-title\"><td>Server</td></tr>\n                        <tr class=\"t-mixed-details\"><td>Port:</td>\n                            <td>9876</td></tr></tbody>";
+				tbody_1 = createElement("tbody");
+				tr_6 = createElement("tr");
+				tr_6.innerHTML = "<td>Health</td>";
+				text_51 = createText("\n                        ");
+				tr_7 = createElement("tr");
+				td_13 = createElement("td");
+				td_13.textContent = "URL:";
+				text_53 = createText("\n                            ");
+				td_14 = createElement("td");
+				text_54 = createText(text_54_value);
+				text_56 = createText("\n                        ");
+				tr_8 = createElement("tr");
+				tr_8.innerHTML = "<td>REPL</td>";
+				text_59 = createText("\n                        ");
+				tr_9 = createElement("tr");
+				tr_9.innerHTML = "<td>Port:</td>\n                            <td>4567</td>";
+				text_64 = createText("\n                        ");
+				tr_10 = createElement("tr");
+				tr_10.innerHTML = "<td>Server</td>";
+				text_67 = createText("\n                        ");
+				tr_11 = createElement("tr");
+				tr_11.innerHTML = "<td>Port:</td>\n                            <td>9876</td>";
 				text_75 = createText("\n\n            ");
 				div_3 = createElement("div");
 				div_3.innerHTML = "<article><h2>Last Week Outages</h2>\n                    <table class=\"table-rows\"><tbody><tr><td>ECONNREFUSED</td>\n                                <td>03:32</td>\n                                <td>Wed, 31 Jan 2018 02:24:23</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>07:02</td>\n                                <td>Mon, 12 Dec 2017 23:14:37</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>01:31</td>\n                                <td>Wed, 31 Jan 2018 13:48:42</td></tr></tbody></table></article>";
@@ -4066,6 +4227,12 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				addListener(li_1, "click", click_handler_1);
 				ul.className = "tab-menu";
 				table.className = "table-cols";
+				tr_6.className = "t-mixed-title";
+				tr_7.className = "t-mixed-details";
+				tr_8.className = "t-mixed-title";
+				tr_9.className = "t-mixed-details";
+				tr_10.className = "t-mixed-title";
+				tr_11.className = "t-mixed-details";
 				table_1.className = "table-cols-mixed";
 				article.className = "panel-white panel-1 col-left";
 				div_3.className = "col col-right";
@@ -4139,6 +4306,22 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				appendNode(hr, article);
 				appendNode(text_48, article);
 				appendNode(table_1, article);
+				appendNode(tbody_1, table_1);
+				appendNode(tr_6, tbody_1);
+				appendNode(text_51, tbody_1);
+				appendNode(tr_7, tbody_1);
+				appendNode(td_13, tr_7);
+				appendNode(text_53, tr_7);
+				appendNode(td_14, tr_7);
+				appendNode(text_54, td_14);
+				appendNode(text_56, tbody_1);
+				appendNode(tr_8, tbody_1);
+				appendNode(text_59, tbody_1);
+				appendNode(tr_9, tbody_1);
+				appendNode(text_64, tbody_1);
+				appendNode(tr_10, tbody_1);
+				appendNode(text_67, tbody_1);
+				appendNode(tr_11, tbody_1);
 				appendNode(text_75, div_2);
 				appendNode(div_3, div_2);
 			},
@@ -4186,6 +4369,10 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 				if (changed.$application && text_41_value !== (text_41_value = state.$application.updatedAt)) {
 					text_41.data = text_41_value;
+				}
+
+				if (changed.$application && text_54_value !== (text_54_value = state.$application.appId)) {
+					text_54.data = text_54_value;
 				}
 
 				if (changed.selected && section_class_value !== (section_class_value = active(state.selected, 'info'))) {
@@ -4256,7 +4443,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				appId: '',
 				hostname: '',
 				identifier: '',
-				environment: ''
+				environment: '',
+				data: ''
 			}
 		};
 	}
@@ -4282,12 +4470,12 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	};
 
 	function oncreate$4() {
-		var _this2 = this;
+		var _this3 = this;
 
 		this.observe('identity', function (value, old) {
-			var item = _this2.get('item');
+			var item = _this3.get('item');
 			item.identifier = value;
-			_this2.set(item);
+			_this3.set(item);
 		});
 	}
 
@@ -4329,6 +4517,11 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 		    h2_1,
 		    text_27,
 		    article_1,
+		    div_6,
+		    label_4,
+		    text_29,
+		    textarea,
+		    textarea_updating = false,
 		    text_32,
 		    div_7,
 		    button,
@@ -4365,6 +4558,14 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 			state.item.identifier = input_3.value;
 			component.set({ item: state.item });
 			input_3_updating = false;
+		}
+
+		function textarea_input_handler() {
+			var state = component.get();
+			textarea_updating = true;
+			state.item.data = textarea.value;
+			component.set({ item: state.item });
+			textarea_updating = false;
 		}
 
 		function click_handler(event) {
@@ -4419,7 +4620,11 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				h2_1.textContent = "Metadata";
 				text_27 = createText("\n            ");
 				article_1 = createElement("article");
-				article_1.innerHTML = "<div class=\"form-group\"><label for=\"data\">Data</label>\n                    <textarea id=\"data\" value=\"Hotdesk\"></textarea></div>";
+				div_6 = createElement("div");
+				label_4 = createElement("label");
+				label_4.textContent = "Data";
+				text_29 = createText("\n                    ");
+				textarea = createElement("textarea");
 				text_32 = createText("\n\n            ");
 				div_7 = createElement("div");
 				button = createElement("button");
@@ -4455,6 +4660,11 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				input_3.placeholder = "Identifier";
 				div_5.className = "form-group";
 				article.className = "panel-white panel-1";
+				label_4.htmlFor = "data";
+				addListener(textarea, "input", textarea_input_handler);
+				textarea.id = "data";
+				textarea.value = "Hotdesk";
+				div_6.className = "form-group";
 				article_1.className = "panel-white panel-1";
 				button.className = "btn btn-secondary";
 				setAttribute(button, "role", "button");
@@ -4514,6 +4724,13 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				appendNode(h2_1, form);
 				appendNode(text_27, form);
 				appendNode(article_1, form);
+				appendNode(div_6, article_1);
+				appendNode(label_4, div_6);
+				appendNode(text_29, div_6);
+				appendNode(textarea, div_6);
+
+				textarea.value = state.item.data;
+
 				appendNode(text_32, form);
 				appendNode(div_7, form);
 				appendNode(button, div_7);
@@ -4529,6 +4746,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				if (changed.identity) {
 					input_3.value = state.identity;
 				}
+
+				if (!textarea_updating) textarea.value = state.item.data;
 			},
 
 			u: function unmount() {
@@ -4542,6 +4761,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				removeListener(input_1, "input", input_1_input_handler);
 				removeListener(input_2, "input", input_2_input_handler);
 				removeListener(input_3, "input", input_3_input_handler);
+				removeListener(textarea, "input", textarea_input_handler);
 				removeListener(button, "click", click_handler);
 				removeListener(button_1, "click", click_handler_1);
 			}
@@ -4676,7 +4896,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 	};
 
 	function oncreate$5() {
-		var _this3 = this;
+		var _this4 = this;
 
 		var appid = this.get('appid');
 		bus.requestApplicationById(appid);
@@ -4686,7 +4906,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 				return;
 			}
 
-			_this3.setAttributes(app.data);
+			_this4.setAttributes(app.data);
 
 			setApp.cancel();
 		});
