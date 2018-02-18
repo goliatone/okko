@@ -1,7 +1,15 @@
-<a href='#' on:click='navigate(event, to)'>{{text}}</a>
+<a href='#' on:click='navigate(event, to)'>
+    {{#if text}} 
+        {{text}} 
+    {{else}}
+    {{yield}}
+    {{/if}}
+</a>
 
 <script>
-    import history from '../services/history';
+    // import history from '../services/history';
+    // import history from '../router/history';
+    import router from '../router';
     
     export default {
         data() {
@@ -16,7 +24,7 @@
                     evt.preventDefault();
                 }
                 if (path) {
-                    history.push(path);
+                    router.goto(path);
                 }
             }
         }
