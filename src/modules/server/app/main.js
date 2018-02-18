@@ -4,7 +4,11 @@ import App from './Application.html';
 import store from './models/RootStore';
 import api from './services/api';
 import bus from './services/dispatcher';
-import history from './services/history';
+// import history from './services/history';
+import router from './router';
+
+import {ApplicationCollection} from './models/ApplicationCollection';
+
 
 const states = bus.EVENT_TYPES;
 
@@ -36,6 +40,14 @@ bus.goto = (uri, data={}) => {
     bus.dispatch(states.NAVIGATION_GOTO, {uri, data});
 };
 
+bus.goBack = function() {
+    this.dispatch(states.NAVIGATION_GO_BACK);
+};
+
+bus.goForward = function() {
+    this.dispatch(states.NAVIGATION_GO_FORWARD);
+};
+
 bus.handle(states.REQUEST_APPLICATION_ID, data => {
     const promise = api.getApplication(data.id);
     promise.then(application => {
@@ -45,7 +57,15 @@ bus.handle(states.REQUEST_APPLICATION_ID, data => {
 });
 
 bus.handle(states.NAVIGATION_GOTO, data => {
-    history.push(data.uri);
+    router.goto(data.uri);
+});
+
+bus.handle(states.NAVIGATION_GO_BACK, _ => {
+    router.goBack();
+});
+
+bus.handle(states.NAVIGATION_GO_FORWARD, _ => {
+    router.goForward();
 });
 
 bus.handle(states.APPLICATION_CREATE, data => {
@@ -123,3 +143,5 @@ const app = new App({
 window.app = app;
 window.bus = bus;
 window.rootStore = store;
+window.ApplicationCollection = ApplicationCollection;
+window.hs = history;
