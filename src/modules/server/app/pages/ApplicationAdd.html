@@ -42,7 +42,7 @@
             <article class="panel-white panel-1">
                 <div class="form-group">
                     <label for="data">Data</label>
-                    <textarea id="data">Hotdesk</textarea>
+                    <textarea bind:value="item.data" id="data">Hotdesk</textarea>
                 </div>
             </article>
 
@@ -74,13 +74,15 @@
             }
         },
         methods: {
-            cancel(event, path='/') {
+            cancel(event, path=false) {
                 if (event && event.preventDefault) {
                     event.preventDefault();
                 }
 
                 if (path) {
                     bus.goto(path);
+                } else {
+                    bus.goBack();
                 }
             },
             save(event, item) {
@@ -97,6 +99,7 @@
                     hostname: '',
                     identifier: '',
                     environment: '',
+                    data: ''
                 }
             };
         }
