@@ -175,11 +175,13 @@
                 const app = this.store.get('application');
                 bus.updateApplication(app);
             },
-            cancel(event, path='/') {
+            cancel(event, path=false) {
                 prevent(event);
 
                 if (path) {
                     bus.goto(path);
+                } else {
+                    bus.goBack();
                 }
             },
         },
