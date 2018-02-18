@@ -16,7 +16,8 @@ const defaults = {
     ]
 };
 
-export class ApplicationModel {
+export class ApplicationModel  {
+    
     constructor(data) {
         if(data.vo) {
             this.fromVO(data.vo);
@@ -24,7 +25,7 @@ export class ApplicationModel {
     }
 
     fromVO(vo) {
-        console.log('VO', vo);
+        console.log('create ApplicationModel:', vo);
         extend(this, vo);
     }
 
