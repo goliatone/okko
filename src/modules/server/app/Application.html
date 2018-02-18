@@ -5,9 +5,8 @@
 <Footer/>
 
 <script>
-    //This should be one
-    import history from './services/history';
-    import createRouter from './services/createRouter.js';
+    import router from './router';
+
     import api from './services/api';
     
     import Link from './components/Link.html';
@@ -18,13 +17,6 @@
     import ApplicationView from './pages/ApplicationView.html';
     import ApplicationAdd from './pages/ApplicationAdd.html';
     import ApplicationEdit from './pages/ApplicationEdit.html';
-
-    const router = createRouter({
-        '/': Home,
-        '/application/add': ApplicationAdd,
-        '/application/:appid/edit': ApplicationEdit,
-        '/application/:appid': ApplicationView,
-    });
 
     window.api = api;
     window.router = router;
