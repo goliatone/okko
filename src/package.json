@@ -37,11 +37,13 @@
     "redis": "^2.8.0",
     "sails-disk": "*",
     "sails-redis": "^0.10.7",
+    "socket.io": "^2.0.4",
     "stream-spigot": "^3.0.6",
     "timestream-aggregates": "^0.1.7",
     "uuid": "^3.2.1"
   },
   "devDependencies": {
+    "babel-plugin-transform-builtin-extend": "^1.1.2",
     "billboard.js": "^1.2.0",
     "bogota": "^2.0.4",
     "d3": "^4.13.0",
