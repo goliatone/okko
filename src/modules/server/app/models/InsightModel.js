@@ -15,7 +15,6 @@ export class InsightModel {
     }
 
     fromVO(vo) {
-        console.log('create InsightModel:', vo);
         extend(this, vo);
         this.application = vo.service.id;
     }
