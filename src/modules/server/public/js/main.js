@@ -1,15 +1,18 @@
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
 var _typeof2 = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
+(function (l, i, v, e) {
+	v = l.createElement(i);v.async = 1;v.src = '//' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1';e = l.getElementsByTagName(i)[0];e.parentNode.insertBefore(v, e);
+})(document, 'script');
 (function () {
 	'use strict';
 
@@ -42,10 +45,20 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 		node.parentNode.removeChild(node);
 	}
 
+	function reinsertBetween(before, after, target) {
+		while (before.nextSibling && before.nextSibling !== after) {
+			target.appendChild(before.parentNode.removeChild(before.nextSibling));
+		}
+	}
+
 	function destroyEach(iterations) {
 		for (var i = 0; i < iterations.length; i += 1) {
 			if (iterations[i]) iterations[i].d();
 		}
+	}
+
+	function createFragment() {
+		return document.createDocumentFragment();
 	}
 
 	function createElement(name) {
@@ -238,6 +251,367 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 		_unmount: _unmount
 	};
 
+	function Store(state) {
+		this._observers = { pre: blankObject(), post: blankObject() };
+		this._changeHandlers = [];
+		this._dependents = [];
+
+		this._computed = blankObject();
+		this._sortedComputedProperties = [];
+
+		this._state = assign({}, state);
+	}
+
+	assign(Store.prototype, {
+		_add: function _add(component, props) {
+			this._dependents.push({
+				component: component,
+				props: props
+			});
+		},
+
+		_init: function _init(props) {
+			var state = {};
+			for (var i = 0; i < props.length; i += 1) {
+				var prop = props[i];
+				state['$' + prop] = this._state[prop];
+			}
+			return state;
+		},
+
+		_remove: function _remove(component) {
+			var i = this._dependents.length;
+			while (i--) {
+				if (this._dependents[i].component === component) {
+					this._dependents.splice(i, 1);
+					return;
+				}
+			}
+		},
+
+		_sortComputedProperties: function _sortComputedProperties() {
+			var computed = this._computed;
+			var sorted = this._sortedComputedProperties = [];
+			var cycles;
+			var visited = blankObject();
+
+			function visit(key) {
+				if (cycles[key]) {
+					throw new Error('Cyclical dependency detected');
+				}
+
+				if (visited[key]) return;
+				visited[key] = true;
+
+				var c = computed[key];
+
+				if (c) {
+					cycles[key] = true;
+					c.deps.forEach(visit);
+					sorted.push(c);
+				}
+			}
+
+			for (var key in this._computed) {
+				cycles = blankObject();
+				visit(key);
+			}
+		},
+
+		compute: function compute(key, deps, fn) {
+			var value;
+
+			var c = {
+				deps: deps,
+				update: function update(state, changed, dirty) {
+					var values = deps.map(function (dep) {
+						if (dep in changed) dirty = true;
+						return state[dep];
+					});
+
+					if (dirty) {
+						var newValue = fn.apply(null, values);
+						if (differs(newValue, value)) {
+							value = newValue;
+							changed[key] = true;
+							state[key] = value;
+						}
+					}
+				}
+			};
+
+			c.update(this._state, {}, true);
+
+			this._computed[key] = c;
+			this._sortComputedProperties();
+		},
+
+		get: get,
+
+		observe: observe,
+
+		onchange: function onchange(callback) {
+			this._changeHandlers.push(callback);
+			return {
+				cancel: function cancel() {
+					var index = this._changeHandlers.indexOf(callback);
+					if (~index) this._changeHandlers.splice(index, 1);
+				}
+			};
+		},
+
+		set: function set(newState) {
+			var oldState = this._state,
+			    changed = this._changed = {},
+			    dirty = false;
+
+			for (var key in newState) {
+				if (this._computed[key]) throw new Error("'" + key + "' is a read-only property");
+				if (differs(newState[key], oldState[key])) changed[key] = dirty = true;
+			}
+			if (!dirty) return;
+
+			this._state = assign({}, oldState, newState);
+
+			for (var i = 0; i < this._sortedComputedProperties.length; i += 1) {
+				this._sortedComputedProperties[i].update(this._state, changed);
+			}
+
+			for (var i = 0; i < this._changeHandlers.length; i += 1) {
+				this._changeHandlers[i](this._state, changed);
+			}
+
+			dispatchObservers(this, this._observers.pre, changed, this._state, oldState);
+
+			var dependents = this._dependents.slice(); // guard against mutations
+			for (var i = 0; i < dependents.length; i += 1) {
+				var dependent = dependents[i];
+				var componentState = {};
+				dirty = false;
+
+				for (var j = 0; j < dependent.props.length; j += 1) {
+					var prop = dependent.props[j];
+					if (prop in changed) {
+						componentState['$' + prop] = this._state[prop];
+						dirty = true;
+					}
+				}
+
+				if (dirty) dependent.component.set(componentState);
+			}
+
+			dispatchObservers(this, this._observers.post, changed, this._state, oldState);
+		}
+	});
+
+	var RootStore = function (_Store) {
+		_inherits(RootStore, _Store);
+
+		function RootStore() {
+			_classCallCheck(this, RootStore);
+
+			return _possibleConstructorReturn(this, (RootStore.__proto__ || Object.getPrototypeOf(RootStore)).apply(this, arguments));
+		}
+
+		_createClass(RootStore, [{
+			key: 'setApplications',
+			value: function setApplications(applications) {
+				this.set({ applications: applications });
+			}
+		}]);
+
+		return RootStore;
+	}(Store);
+
+	var _store = new RootStore({
+		online: 0,
+		offline: 0,
+		applications: [],
+		application: {}
+	});
+
+	/* modules/server/app/router/Button.html generated by Svelte v1.54.2 */
+	function data() {
+		return {
+			text: '',
+			to: '/'
+		};
+	}
+
+	function icon(type) {
+		switch (type) {
+			case 'add':
+				return 'icon-plus';
+				break;
+			case 'edit':
+				return 'icon-edit-white';
+				break;
+		}
+	}
+
+	var methods = {
+		navigate: function navigate(evt, path) {
+			if (evt && evt.preventDefault) {
+				evt.preventDefault();
+			}
+			if (path) {
+				router.goto(path);
+			}
+		}
+	};
+
+	function create_main_fragment(state, component) {
+		var button;
+
+		var current_block_type = select_block_type(state);
+		var if_block = current_block_type(state, component);
+
+		function click_handler(event) {
+			var state = component.get();
+			component.navigate(event, state.to);
+		}
+
+		return {
+			c: function create() {
+				button = createElement("button");
+				if_block.c();
+				this.h();
+			},
+
+			h: function hydrate() {
+				button.className = "btn btn-info";
+				setAttribute(button, "role", "button");
+				addListener(button, "click", click_handler);
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(button, target, anchor);
+				if_block.m(button, null);
+			},
+
+			p: function update(changed, state) {
+				if (current_block_type === (current_block_type = select_block_type(state)) && if_block) {
+					if_block.p(changed, state);
+				} else {
+					if_block.u();
+					if_block.d();
+					if_block = current_block_type(state, component);
+					if_block.c();
+					if_block.m(button, null);
+				}
+			},
+
+			u: function unmount() {
+				detachNode(button);
+				if_block.u();
+			},
+
+			d: function destroy$$1() {
+				if_block.d();
+				removeListener(button, "click", click_handler);
+			}
+		};
+	}
+
+	// (2:4) {{#if text}}
+	function create_if_block(state, component) {
+		var span, span_class_value, text, span_1, text_1;
+
+		return {
+			c: function create() {
+				span = createElement("span");
+				text = createText("\n    ");
+				span_1 = createElement("span");
+				text_1 = createText(state.text);
+				this.h();
+			},
+
+			h: function hydrate() {
+				span.className = span_class_value = icon(state.type);
+				setAttribute(span, "aria-hidden", "true");
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(span, target, anchor);
+				insertNode(text, target, anchor);
+				insertNode(span_1, target, anchor);
+				appendNode(text_1, span_1);
+			},
+
+			p: function update(changed, state) {
+				if (changed.type && span_class_value !== (span_class_value = icon(state.type))) {
+					span.className = span_class_value;
+				}
+
+				if (changed.text) {
+					text_1.data = state.text;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(span);
+				detachNode(text);
+				detachNode(span_1);
+			},
+
+			d: noop
+		};
+	}
+
+	// (5:4) {{else}}
+	function create_if_block_1(state, component) {
+		var slot_content_default = component._slotted.default,
+		    slot_content_default_before,
+		    slot_content_default_after;
+
+		return {
+			c: noop,
+
+			m: function mount(target, anchor) {
+				if (slot_content_default) {
+					insertNode(slot_content_default_before || (slot_content_default_before = createComment()), target, anchor);
+					insertNode(slot_content_default, target, anchor);
+					insertNode(slot_content_default_after || (slot_content_default_after = createComment()), target, anchor);
+				}
+			},
+
+			p: noop,
+
+			u: function unmount() {
+				if (slot_content_default) {
+					reinsertBetween(slot_content_default_before, slot_content_default_after, slot_content_default);
+					detachNode(slot_content_default_before);
+					detachNode(slot_content_default_after);
+				}
+			},
+
+			d: noop
+		};
+	}
+
+	function select_block_type(state) {
+		if (state.text) return create_if_block;
+		return create_if_block_1;
+	}
+
+	function Button(options) {
+		init(this, options);
+		this._state = assign(data(), options.data);
+
+		this._slotted = options.slots || {};
+
+		this.slots = {};
+
+		this._fragment = create_main_fragment(this._state, this);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+		}
+	}
+
+	assign(Button.prototype, methods, proto);
+
 	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function commonjsRequire() {
@@ -251,6 +625,3211 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 	function createCommonjsModule(fn, module) {
 		return module = { exports: {} }, fn(module, module.exports), module.exports;
 	}
+
+	var keypath = createCommonjsModule(function (module, exports) {
+		/*
+   * gkeypath
+   * https://github.com/goliatone/gkeypath
+   * Created with gbase.
+   * Copyright (c) 2014 goliatone
+   * Licensed under the MIT license.
+   */
+		/* jshint strict: false, plusplus: true */
+		/*global define: false, require: false, module: false, exports: false */
+		(function (root, name, deps, factory) {
+			if (typeof deps === 'function') {
+				factory = deps;
+				deps = [];
+			}
+
+			{
+				module.exports = factory.apply(root, deps.map(commonjsRequire));
+			}
+		})(commonjsGlobal, 'keypath', function () {
+
+			var Keypath = {};
+
+			Keypath.VERSION = '0.4.1';
+
+			Keypath.set = function (target, path, value) {
+				if (!target) return undefined;
+
+				var keys = path.split('.');
+				path = keys.pop();
+				keys.forEach(function (prop) {
+					if (!target[prop]) target[prop] = {};
+					target = target[prop];
+				});
+
+				Keypath._set(target, path, value); //target[path] = value;
+
+				return target;
+			};
+
+			Keypath.get = function (target, path, defaultValue) {
+				if (!target || !path) return false;
+
+				path = path.split('.');
+				var l = path.length,
+				    i = 0,
+				    p = '';
+				for (; i < l; ++i) {
+					p = path[i];
+					if (target[p] !== undefined) target = target[p];else return Keypath._get(defaultValue);
+				}
+				return Keypath._get(target);
+			};
+
+			Keypath.has = function (target, path) {
+				return this.get(target, path, '#$#NFV#$#') !== '#$#NFV#$#';
+			};
+
+			Keypath.assert = function (target, path, message) {
+				message = message || Keypath.DEFAULTS.assertionMessage;
+				var value = this.get(target, path, message);
+
+				if (value !== message) return value;
+
+				this.onError(message, path);
+
+				return undefined;
+			};
+			//TODO: we might want to reverse the order, and have a different
+			//signature. target, propName, inject
+			Keypath.wrap = function (target, inject, dataPropName) {
+				var wrapper = new Wrapper(target, dataPropName);
+
+				if (Proxy) {
+					wrapper = new Proxy(wrapper, {
+						get: function get(receiver, prop) {
+							if (typeof receiver[prop] === 'function') {
+								return function () {
+									for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+										args[_key2] = arguments[_key2];
+									}
+
+									return Reflect.apply(receiver[prop], receiver, args);
+								};
+							}
+							var out = receiver._target[prop];
+							if (out === undefined && receiver.hasOwnProperty(prop)) out = receiver[prop];
+							if (out === undefined && prop === dataPropName) out = receiver._target;
+							return out;
+						},
+						set: function set(receiver, prop, value) {
+							receiver._target[prop] = value;
+						}
+					});
+				}
+
+				if (!inject) return wrapper;
+
+				if (typeof inject === 'function') inject(target, wrapper);
+				if (typeof inject === 'string') Keypath.set(target, inject, wrapper);
+
+				return wrapper;
+			};
+
+			Keypath.onError = console.error.bind(console);
+
+			///////////////////////////////////////////////////
+			// PRIVATE METHODS
+			///////////////////////////////////////////////////
+			Keypath._get = function (value) {
+				return typeof value === 'function' ? value() : value;
+			};
+
+			Keypath._set = function (src, method, val) {
+				if (typeof src[method] === 'function') return src[method].call(src, val);
+				return src[method] = val;
+			};
+
+			///////////////////////////////////////////////////
+			// WRAPPER Internal Class
+			///////////////////////////////////////////////////
+			/**
+    * Wrapper Constructor
+    * @param {Object} target Object to be wrapped
+    */
+
+			function Wrapper(target, prop) {
+				prop = prop || 'target';
+				this[prop] = this._target = target;
+			}
+
+			Wrapper.prototype.set = function (path, value) {
+				return Keypath.set(this._target, path, value);
+			};
+
+			Wrapper.prototype.get = function (path, defaultValue) {
+				return Keypath.get(this._target, path, defaultValue);
+			};
+
+			Wrapper.prototype.has = function (path) {
+				return Keypath.has(this._target, path);
+			};
+
+			Keypath.Wrapper = Wrapper;
+
+			return Keypath;
+		});
+	});
+
+	/* modules/server/app/router/Link.html generated by Svelte v1.54.2 */
+	function data$1() {
+		return {
+			text: '',
+			to: '/'
+		};
+	}
+
+	var methods$1 = {
+		navigate: function navigate(evt, path) {
+			if (evt && evt.preventDefault) {
+				evt.preventDefault();
+			}
+			if (path) {
+				router.goto(path);
+			}
+		}
+	};
+
+	function create_main_fragment$1(state, component) {
+		var a;
+
+		var current_block_type = select_block_type$1(state);
+		var if_block = current_block_type(state, component);
+
+		function click_handler(event) {
+			var state = component.get();
+			component.navigate(event, state.to);
+		}
+
+		return {
+			c: function create() {
+				a = createElement("a");
+				if_block.c();
+				this.h();
+			},
+
+			h: function hydrate() {
+				a.href = "#";
+				addListener(a, "click", click_handler);
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(a, target, anchor);
+				if_block.m(a, null);
+			},
+
+			p: function update(changed, state) {
+				if (current_block_type === (current_block_type = select_block_type$1(state)) && if_block) {
+					if_block.p(changed, state);
+				} else {
+					if_block.u();
+					if_block.d();
+					if_block = current_block_type(state, component);
+					if_block.c();
+					if_block.m(a, null);
+				}
+			},
+
+			u: function unmount() {
+				detachNode(a);
+				if_block.u();
+			},
+
+			d: function destroy$$1() {
+				if_block.d();
+				removeListener(a, "click", click_handler);
+			}
+		};
+	}
+
+	// (2:4) {{#if text}}
+	function create_if_block$1(state, component) {
+		var text;
+
+		return {
+			c: function create() {
+				text = createText(state.text);
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(text, target, anchor);
+			},
+
+			p: function update(changed, state) {
+				if (changed.text) {
+					text.data = state.text;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(text);
+			},
+
+			d: noop
+		};
+	}
+
+	// (4:4) {{else}}
+	function create_if_block_1$1(state, component) {
+		var slot_content_default = component._slotted.default,
+		    slot_content_default_before,
+		    slot_content_default_after;
+
+		return {
+			c: noop,
+
+			m: function mount(target, anchor) {
+				if (slot_content_default) {
+					insertNode(slot_content_default_before || (slot_content_default_before = createComment()), target, anchor);
+					insertNode(slot_content_default, target, anchor);
+					insertNode(slot_content_default_after || (slot_content_default_after = createComment()), target, anchor);
+				}
+			},
+
+			p: noop,
+
+			u: function unmount() {
+				if (slot_content_default) {
+					reinsertBetween(slot_content_default_before, slot_content_default_after, slot_content_default);
+					detachNode(slot_content_default_before);
+					detachNode(slot_content_default_after);
+				}
+			},
+
+			d: noop
+		};
+	}
+
+	function select_block_type$1(state) {
+		if (state.text) return create_if_block$1;
+		return create_if_block_1$1;
+	}
+
+	function Link(options) {
+		init(this, options);
+		this._state = assign(data$1(), options.data);
+
+		this._slotted = options.slots || {};
+
+		this.slots = {};
+
+		this._fragment = create_main_fragment$1(this._state, this);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+		}
+	}
+
+	assign(Link.prototype, methods$1, proto);
+
+	var EVENT_TYPES = {
+		REQUEST_INSIGHTS: 'REQUEST_INSIGHTS',
+		REQUEST_SERVICES: 'REQUEST_SERVICES',
+		REQUEST_APPLICATION_ID: 'REQUEST_APPLICATION_ID',
+		REQUEST_APPLICATIONS: 'REQUEST_APPLICATIONS',
+		REQUEST_INSIGHT_ID: 'REQUEST_INSIGHT_ID',
+		/**
+   * Build all data to be displayed in home
+   * page.
+   */
+		REQUEST_COMPILE_DATA: 'REQUEST_COMPILE_DATA',
+
+		NAVIGATION_GOTO: 'NAVIGATION_GOTO',
+		NAVIGATION_GO_BACK: 'NAVIGATION_GO_BACK',
+		NAVIGATION_GO_FORWARD: 'NAVIGATION_GO_FORWARD',
+
+		APPLICATION_VIEW: 'APPLICATION_VIEW',
+
+		APPLICATION_NEW: 'APPLICATION_NEW',
+		APPLICATION_CREATE: 'APPLICATION_CREATE',
+
+		APPLICATION_EDIT: 'APPLICATION_EDIT',
+		APPLICATION_UPDATE: 'APPLICATION_UPDATE',
+
+		APPLICATION_DELETE: 'APPLICATION_DELETE',
+		APPLICATION_PAUSE: 'APPLICATION_PAUSE'
+	};
+
+	var _handlers = {};
+
+	var bus = {
+
+		EVENT_TYPES: EVENT_TYPES,
+
+		handle: function handle(eventName, handler) {
+
+			if (arguments.length === 1) {
+				handler = eventName.handler;
+				eventName = eventName.type;
+			}
+
+			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
+			handlers.push(handler);
+
+			return {
+				cancel: function cancel() {
+					var index = handlers.indexOf(handler);
+					if (~index) handlers.splice(index, 1);
+				}
+			};
+		},
+		dispatch: function dispatch(eventName) {
+			var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+
+			if ((typeof eventName === 'undefined' ? 'undefined' : _typeof2(eventName)) === 'object') {
+				data = eventName;
+				eventName = data.type;
+			} else if (!data.type) {
+				data.type = eventName;
+			}
+
+			var handlers = eventName in _handlers && _handlers[eventName].slice();
+
+			if (!handlers) {
+				return console.log('No handlers for %s', eventName);
+			}
+
+			for (var i = 0; i < handlers.length; i += 1) {
+				handlers[i].call(this, data);
+			}
+		},
+		cancel: function cancel(eventName, handler) {
+
+			if (arguments.length === 1) {
+				handler = eventName.handler;
+				eventName = eventName.type;
+			}
+
+			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
+			var index = handlers.indexOf(handler);
+			if (~index) handlers.splice(index, 1);
+		}
+	};
+
+	/* modules/server/app/components/ApplicationListItem.html generated by Svelte v1.54.2 */
+	function status(online) {
+		return online ? 'online' : 'offline';
+	}
+
+	function data$2() {
+		return {
+			item: {
+				status: '',
+				appId: '',
+				last24Hours: 0,
+				lastWeek: 0,
+				downtime: 0,
+				outages: 0
+			}
+		};
+	}
+
+	function getStatus() {
+		var online = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'offline';
+
+		return online ? 'online' : 'offline';
+	}
+
+	function getKey(obj, path, def) {
+		return keypath.get(obj, path, def);
+	}
+
+	function formatDowntime(downtime) {
+		function pad(n, z) {
+			z = z || 2;
+			return ('00' + n).slice(-z);
+		}
+
+		var ms = downtime % 1000;
+		downtime = (downtime - ms) / 1000;
+		var secs = downtime % 60;
+		downtime = (downtime - secs) / 60;
+		var mins = downtime % 60;
+		var hrs = (downtime - mins) / 60;
+
+		return pad(hrs) + ':' + pad(mins) + ':' + pad(secs);
+	}
+
+	var methods$2 = {
+		action: function action(event, _action) {
+			if (event && event.preventDefault) {
+				event.preventDefault();
+			}
+			var appid = this.get('item').id;
+
+			switch (_action) {
+				case 'edit':
+					bus.goto('/application/' + appid + '/edit');
+					break;
+				case 'delete':
+					bus.deleteApplication(appid);
+					break;
+				case 'pause':
+					bus.pauseApplicationMonitoring(appid);
+					break;
+			}
+		}
+	};
+
+	function oncreate() {
+		var _this2 = this;
+
+		var btn = this.refs.btn;
+
+		var activeMenu = function activeMenu(e) {
+			_this2.set({ dropdown: e.target === btn ? 'active' : '' });
+		};
+
+		this.on('destroy', function () {
+			document.removeEventListener('click', activeMenu);
+		});
+
+		document.addEventListener('click', activeMenu);
+	}
+
+	function create_main_fragment$2(state, component) {
+		var tr,
+		    td,
+		    text_1,
+		    td_1,
+		    text_3,
+		    td_2,
+		    text_5,
+		    td_3,
+		    text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0),
+		    text_6,
+		    text_7,
+		    td_4,
+		    text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0),
+		    text_8,
+		    text_9,
+		    td_5,
+		    text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)),
+		    text_10,
+		    text_11,
+		    td_6,
+		    text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0),
+		    text_12,
+		    text_13,
+		    td_7,
+		    button,
+		    span_2,
+		    button_class_value,
+		    text_15,
+		    nav,
+		    ul,
+		    li,
+		    li_1,
+		    li_2,
+		    tr_data_status_value;
+
+		var link = new Link({
+			root: component.root,
+			data: {
+				to: "/application/" + state.item.id,
+				text: state.item.appId
+			}
+		});
+
+		function click_handler(event) {
+			component.action(event, 'delete');
+		}
+
+		function click_handler_1(event) {
+			component.action(event, 'edit');
+		}
+
+		function click_handler_2(event) {
+			component.action(event, 'pause');
+		}
+
+		return {
+			c: function create() {
+				tr = createElement("tr");
+				td = createElement("td");
+				td.innerHTML = "<span class=\"icon-status\"></span>";
+				text_1 = createText("\n    ");
+				td_1 = createElement("td");
+				link._fragment.c();
+				text_3 = createText("\n\n    ");
+				td_2 = createElement("td");
+				td_2.innerHTML = "<span class=\"tag tag-status tag-big\"></span>";
+				text_5 = createText("\n\n    ");
+				td_3 = createElement("td");
+				text_6 = createText(text_6_value);
+				text_7 = createText("\n    ");
+				td_4 = createElement("td");
+				text_8 = createText(text_8_value);
+				text_9 = createText("\n    ");
+				td_5 = createElement("td");
+				text_10 = createText(text_10_value);
+				text_11 = createText("\n    ");
+				td_6 = createElement("td");
+				text_12 = createText(text_12_value);
+				text_13 = createText("\n\n    ");
+				td_7 = createElement("td");
+				button = createElement("button");
+				span_2 = createElement("span");
+				text_15 = createText("\n        ");
+				nav = createElement("nav");
+				ul = createElement("ul");
+				li = createElement("li");
+				li.innerHTML = "<a href=\"#\"><span class=\"icon-delete\"></span>Delete</a>";
+				li_1 = createElement("li");
+				li_1.innerHTML = "<a href=\"#\"><span class=\"icon-edit\"></span>Edit</a>";
+				li_2 = createElement("li");
+				li_2.innerHTML = "<a href=\"#\"><span class=\"icon-pause\"></span>Pause Monitor</a>";
+				this.h();
+			},
+
+			h: function hydrate() {
+				td.className = "td-tight";
+				td_3.className = "percentage";
+				td_4.className = "percentage";
+				span_2.className = "icon-more";
+				button.className = button_class_value = "btn btn-icon dropdown-toggle " + state.dropdown;
+				setAttribute(button, "role", "button");
+				li.className = "container-icon";
+				addListener(li, "click", click_handler);
+				li_1.className = "container-icon";
+				addListener(li_1, "click", click_handler_1);
+				li_2.className = "container-icon";
+				addListener(li_2, "click", click_handler_2);
+				nav.className = "dropdown-menu dm-overlay dm-white";
+				td_7.className = "dropdown-container td-center";
+				tr.dataset.status = tr_data_status_value = getStatus(state.item.online);
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(tr, target, anchor);
+				appendNode(td, tr);
+				appendNode(text_1, tr);
+				appendNode(td_1, tr);
+				link._mount(td_1, null);
+				appendNode(text_3, tr);
+				appendNode(td_2, tr);
+				appendNode(text_5, tr);
+				appendNode(td_3, tr);
+				appendNode(text_6, td_3);
+				appendNode(text_7, tr);
+				appendNode(td_4, tr);
+				appendNode(text_8, td_4);
+				appendNode(text_9, tr);
+				appendNode(td_5, tr);
+				appendNode(text_10, td_5);
+				appendNode(text_11, tr);
+				appendNode(td_6, tr);
+				appendNode(text_12, td_6);
+				appendNode(text_13, tr);
+				appendNode(td_7, tr);
+				appendNode(button, td_7);
+				appendNode(span_2, button);
+				component.refs.btn = span_2;
+				appendNode(text_15, td_7);
+				appendNode(nav, td_7);
+				appendNode(ul, nav);
+				appendNode(li, ul);
+				appendNode(li_1, ul);
+				appendNode(li_2, ul);
+			},
+
+			p: function update(changed, state) {
+				var link_changes = {};
+				if (changed.item) link_changes.to = "/application/" + state.item.id;
+				if (changed.item) link_changes.text = state.item.appId;
+				link._set(link_changes);
+
+				if (changed.item && text_6_value !== (text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0))) {
+					text_6.data = text_6_value;
+				}
+
+				if (changed.item && text_8_value !== (text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0))) {
+					text_8.data = text_8_value;
+				}
+
+				if (changed.item && text_10_value !== (text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)))) {
+					text_10.data = text_10_value;
+				}
+
+				if (changed.item && text_12_value !== (text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0))) {
+					text_12.data = text_12_value;
+				}
+
+				if (changed.dropdown && button_class_value !== (button_class_value = "btn btn-icon dropdown-toggle " + state.dropdown)) {
+					button.className = button_class_value;
+				}
+
+				if (changed.item && tr_data_status_value !== (tr_data_status_value = getStatus(state.item.online))) {
+					tr.dataset.status = tr_data_status_value;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(tr);
+			},
+
+			d: function destroy$$1() {
+				link.destroy(false);
+				if (component.refs.btn === span_2) component.refs.btn = null;
+				removeListener(li, "click", click_handler);
+				removeListener(li_1, "click", click_handler_1);
+				removeListener(li_2, "click", click_handler_2);
+			}
+		};
+	}
+
+	function ApplicationListItem(options) {
+		init(this, options);
+		this.refs = {};
+		this._state = assign(data$2(), options.data);
+		this._recompute({ online: 1 }, this._state);
+
+		var _oncreate = oncreate.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+			this._beforecreate = [];
+			this._aftercreate = [];
+		}
+
+		this._fragment = create_main_fragment$2(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			this._lock = true;
+			callAll(this._beforecreate);
+			callAll(this._oncreate);
+			callAll(this._aftercreate);
+			this._lock = false;
+		}
+	}
+
+	assign(ApplicationListItem.prototype, methods$2, proto);
+
+	ApplicationListItem.prototype._recompute = function _recompute(changed, state) {
+		if (changed.online) {
+			if (differs(state.status, state.status = status(state.online))) changed.status = true;
+		}
+	};
+
+	/* modules/server/app/pages/Home.html generated by Svelte v1.54.2 */
+	function data$3() {
+		return {
+			online: 0,
+			offline: 0,
+			applications: []
+		};
+	}
+
+	var methods$3 = {
+		addApplication: function addApplication() {
+			console.log('message');
+		}
+	};
+
+	function oncreate$1() {
+		bus.requestCompiledData();
+		window.page = this;
+	}
+
+	function store_1() {
+		return _store;
+	}
+
+	function create_main_fragment$3(state, component) {
+		var header, h1, text_1, text_3, div, ul, li, li_1, a_1, text_6, text_7, text_8, li_2, a_2, text_10, text_11, text_12, text_14, table, thead, text_30, tbody, await_block_1, await_block_type, await_token, promise, resolved;
+
+		var button = new Button({
+			root: component.root,
+			data: {
+				to: "/application/add",
+				text: "Add Application",
+				type: "add"
+			}
+		});
+
+		function replace_await_block(token, type, value, state) {
+			if (token !== await_token) return;
+
+			var old_block = await_block_1;
+			await_block_1 = (await_block_type = type)(state, resolved = value, component);
+
+			if (old_block) {
+				old_block.u();
+				old_block.d();
+				await_block_1.c();
+				await_block_1.m(tbody, null);
+
+				component.root.set({});
+			}
+		}
+
+		function handle_promise(promise, state) {
+			var token = await_token = {};
+
+			if (isPromise(promise)) {
+				promise.then(function (value) {
+					var state = component.get();
+					replace_await_block(token, create_then_block, value, state);
+				}, function (error_1) {
+					var state = component.get();
+					replace_await_block(token, create_catch_block, error_1, state);
+				});
+
+				// if we previously had a then/catch block, destroy it
+				if (await_block_type !== create_pending_block) {
+					replace_await_block(token, create_pending_block, null, state);
+					return true;
+				}
+			} else {
+				resolved = promise;
+				if (await_block_type !== create_then_block) {
+					replace_await_block(token, create_then_block, resolved, state);
+					return true;
+				}
+			}
+		}
+
+		handle_promise(promise = state.$applications, state);
+
+		return {
+			c: function create() {
+				header = createElement("header");
+				h1 = createElement("h1");
+				h1.textContent = "Applications";
+				text_1 = createText("\n    ");
+				button._fragment.c();
+				text_3 = createText("\n\n");
+				div = createElement("div");
+				ul = createElement("ul");
+				li = createElement("li");
+				li.innerHTML = "<a href=\"#applications-all\" title=\"All\">All</a>";
+				li_1 = createElement("li");
+				a_1 = createElement("a");
+				text_6 = createText("Online(");
+				text_7 = createText(state.$online);
+				text_8 = createText(")");
+				li_2 = createElement("li");
+				a_2 = createElement("a");
+				text_10 = createText("Offline(");
+				text_11 = createText(state.$offline);
+				text_12 = createText(")");
+				text_14 = createText("\n\n    ");
+				table = createElement("table");
+				thead = createElement("thead");
+				thead.innerHTML = "<tr><th></th>\n                <th></th>\n                <th>Status</th>\n                <th>Last 24 hours</th>\n                <th>Last Week</th>\n                <th>Downtime</th>\n                <th class=\"text-center\">Outages</th>\n                <th class=\"text-center\">Actions</th></tr>";
+				text_30 = createText("\n        ");
+				tbody = createElement("tbody");
+
+				await_block_1.c();
+				this.h();
+			},
+
+			h: function hydrate() {
+				h1.className = "title";
+				header.className = "row";
+				li.className = "active";
+				a_1.href = "#application-online";
+				a_1.title = "Online(4)";
+				a_2.href = "#application-offline";
+				a_2.title = "Offline(1)";
+				ul.className = "tab-menu";
+				table.className = "table-rows-white";
+				div.className = "layout-w";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(header, target, anchor);
+				appendNode(h1, header);
+				appendNode(text_1, header);
+				button._mount(header, null);
+				insertNode(text_3, target, anchor);
+				insertNode(div, target, anchor);
+				appendNode(ul, div);
+				appendNode(li, ul);
+				appendNode(li_1, ul);
+				appendNode(a_1, li_1);
+				appendNode(text_6, a_1);
+				appendNode(text_7, a_1);
+				appendNode(text_8, a_1);
+				appendNode(li_2, ul);
+				appendNode(a_2, li_2);
+				appendNode(text_10, a_2);
+				appendNode(text_11, a_2);
+				appendNode(text_12, a_2);
+				appendNode(text_14, div);
+				appendNode(table, div);
+				appendNode(thead, table);
+				appendNode(text_30, table);
+				appendNode(tbody, table);
+
+				await_block_1.m(tbody, null);
+			},
+
+			p: function update(changed, state) {
+				if (changed.$online) {
+					text_7.data = state.$online;
+				}
+
+				if (changed.$offline) {
+					text_11.data = state.$offline;
+				}
+
+				if ('$applications' in changed && promise !== (promise = state.$applications) && handle_promise(promise, state)) {
+					// nothing
+				} else {
+					await_block_1.p(changed, state, resolved);
+				}
+			},
+
+			u: function unmount() {
+				detachNode(header);
+				detachNode(text_3);
+				detachNode(div);
+
+				await_block_1.u();
+			},
+
+			d: function destroy$$1() {
+				button.destroy(false);
+
+				await_token = null;
+				await_block_1.d();
+			}
+		};
+	}
+
+	// (33:36)              <p>We are loading results...</p>             {{then response}}
+	function create_pending_block(state, _, component) {
+		var p;
+
+		return {
+			c: function create() {
+				p = createElement("p");
+				p.textContent = "We are loading results...";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(p, target, anchor);
+			},
+
+			p: noop,
+
+			u: function unmount() {
+				detachNode(p);
+			},
+
+			d: noop
+		};
+	}
+
+	// (37:16) {{#each response as value}}
+	function create_each_block(state, response, response_1, value, value_index, component) {
+
+		var item = new ApplicationListItem({
+			root: component.root,
+			data: { item: value }
+		});
+
+		return {
+			c: function create() {
+				item._fragment.c();
+			},
+
+			m: function mount(target, anchor) {
+				item._mount(target, anchor);
+			},
+
+			p: function update(changed, state, response, response_1, value, value_index) {
+				var item_changes = {};
+				if (changed.$applications) item_changes.item = value;
+				item._set(item_changes);
+			},
+
+			u: function unmount() {
+				item._unmount();
+			},
+
+			d: function destroy$$1() {
+				item.destroy(false);
+			}
+		};
+	}
+
+	// (36:16) {{#if response}}
+	function create_if_block$2(state, response, component) {
+		var each_anchor;
+
+		var response_1 = response;
+
+		var each_blocks = [];
+
+		for (var i = 0; i < response_1.length; i += 1) {
+			each_blocks[i] = create_each_block(state, response, response_1, response_1[i], i, component);
+		}
+
+		return {
+			c: function create() {
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				each_anchor = createComment();
+			},
+
+			m: function mount(target, anchor) {
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].m(target, anchor);
+				}
+
+				insertNode(each_anchor, target, anchor);
+			},
+
+			p: function update(changed, state, response) {
+				var response_1 = response;
+
+				if (changed.$applications) {
+					for (var i = 0; i < response_1.length; i += 1) {
+						if (each_blocks[i]) {
+							each_blocks[i].p(changed, state, response, response_1, response_1[i], i);
+						} else {
+							each_blocks[i] = create_each_block(state, response, response_1, response_1[i], i, component);
+							each_blocks[i].c();
+							each_blocks[i].m(each_anchor.parentNode, each_anchor);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].u();
+						each_blocks[i].d();
+					}
+					each_blocks.length = response_1.length;
+				}
+			},
+
+			u: function unmount() {
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].u();
+				}
+
+				detachNode(each_anchor);
+			},
+
+			d: function destroy$$1() {
+				destroyEach(each_blocks);
+			}
+		};
+	}
+
+	// (35:12) {{then response}}
+	function create_then_block(state, response, component) {
+		var if_block_anchor;
+
+		var if_block = response && create_if_block$2(state, response, component);
+
+		return {
+			c: function create() {
+				if (if_block) if_block.c();
+				if_block_anchor = createComment();
+			},
+
+			m: function mount(target, anchor) {
+				if (if_block) if_block.m(target, anchor);
+				insertNode(if_block_anchor, target, anchor);
+			},
+
+			p: function update(changed, state, response) {
+				if (response) {
+					if (if_block) {
+						if_block.p(changed, state, response);
+					} else {
+						if_block = create_if_block$2(state, response, component);
+						if_block.c();
+						if_block.m(if_block_anchor.parentNode, if_block_anchor);
+					}
+				} else if (if_block) {
+					if_block.u();
+					if_block.d();
+					if_block = null;
+				}
+			},
+
+			u: function unmount() {
+				if (if_block) if_block.u();
+				detachNode(if_block_anchor);
+			},
+
+			d: function destroy$$1() {
+				if (if_block) if_block.d();
+			}
+		};
+	}
+
+	// (41:12) {{catch error}}
+	function create_catch_block(state, error, component) {
+		var p;
+
+		return {
+			c: function create() {
+				p = createElement("p");
+				p.textContent = "Well that's odd... An error occurred during processing your request.";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(p, target, anchor);
+			},
+
+			p: noop,
+
+			u: function unmount() {
+				detachNode(p);
+			},
+
+			d: noop
+		};
+	}
+
+	function Home(options) {
+		init(this, options);
+		this.store = store_1();
+		this._state = assign(this.store._init(["online", "offline", "applications"]), data$3(), options.data);
+		this.store._add(this, ["online", "offline", "applications"]);
+
+		this._handlers.destroy = [removeFromStore];
+
+		var _oncreate = oncreate$1.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+			this._beforecreate = [];
+			this._aftercreate = [];
+		}
+
+		this._fragment = create_main_fragment$3(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			this._lock = true;
+			callAll(this._beforecreate);
+			callAll(this._oncreate);
+			callAll(this._aftercreate);
+			this._lock = false;
+		}
+	}
+
+	assign(Home.prototype, methods$3, proto);
+
+	/* modules/server/app/components/ProbeChart.html generated by Svelte v1.54.2 */
+	var libs = [];
+	function data$4() {
+		return {
+			selectedLabel: 'Hour',
+			selectedTime: 'hour',
+
+			probes: 0,
+			mean: 0,
+			min: 0,
+			max: 0,
+			errors: 0
+		};
+	}
+
+	var methods$4 = {
+		notifyReady: function notifyReady(event, lib) {
+			console.log('ready', lib);
+			libs.push(lib);
+			if (libs.length === 2) this.createChart();
+		},
+		createChart: function createChart() {
+			console.log('d3', window.d3, 'bb', window.bb);
+
+			var BAR_BG = '#8199ab';
+			var HIGHLIGHT_BG = '#ff206a';
+
+			var hour = ['hour', 47, 89, 47, 66, 47, 141, 66, 47, 122, 100, 141, 89, 173, 122, 100, 196, 66, 66, 47, 113, 66, 89, 66, 205, 100, 122, 66, 66, 47, 66, 100, 205, 66, 141, 89, 152, 47, 66, 152, 141, 47, 66, 89, 100, 205, 89, 47, 100, 66, 113, 66, 47, 100, 89, 113, 47, 66, 100, 47, 113, 100, 89, 47, 66, 47, 89, 66, 89, 100];
+
+			var chart = bb.generate({
+				data: {
+					columns: [hour],
+					type: 'bar',
+					// set bars fill color
+					colors: { data: BAR_BG },
+					// set fill color for max values in chart
+					onmax: function onmax(data) {
+						data.forEach(function (v) {
+							var max_el = d3.select("#js-chart-probe-latency .bb-shapes-" + v.id + " .bb-bar-" + v.index);
+							max_el.style('fill', HIGHLIGHT_BG);
+						});
+					}
+				},
+				axis: {
+					// hide axis
+					x: {
+						show: false
+					},
+					y: {
+						show: false,
+						// set y axis range
+						min: 0,
+						max: 165
+						// padding: 0
+					}
+				},
+				grid: {
+					y: {
+						show: true,
+						lines: true
+					},
+					lines: { front: true }
+				},
+				legend: { show: false }, // hide legend
+				bar: {
+					width: { ratio: 0.35 }
+				},
+				bindto: '#js-chart-probe-latency'
+			});
+
+			window.chart = chart;
+		},
+		action: function action(event, resolution) {
+			if (event && event.preventDefault) {
+				event.preventDefault();
+			}
+			var item = event.target;
+
+			var lis = item.parentElement.getElementsByTagName('li');
+
+			Array.from(lis).forEach(function (el) {
+				return el.classList.remove('js-hidden');
+			});
+			item.classList.add('js-hidden');
+
+			var text = item.textContent;
+
+			this.set({
+				selectedLabel: text,
+				selectedTime: resolution
+			});
+		}
+	};
+
+	function oncreate$2() {
+		var _this3 = this;
+
+		libs = [];
+		var _refs = this.refs,
+		    btn = _refs.btn,
+		    lbl = _refs.lbl;
+
+
+		var activeMenu = function activeMenu(e) {
+			_this3.set({
+				dropdown: e.target === btn || e.target === lbl ? 'active' : ''
+			});
+		};
+
+		this.on('destroy', function () {
+			document.removeEventListener('click', activeMenu);
+		});
+
+		document.addEventListener('click', activeMenu);
+	}
+
+	function create_main_fragment$4(state, component) {
+		var link, script, script_1, text, article, div, p, text_1, text_2, div_1, text_3, div_2, ul, li, p_1, text_5, p_2, text_6, li_1, p_3, text_9, p_4, text_10, li_2, p_5, text_13, p_6, text_14, li_3, p_7, text_17, p_8, text_18, li_4, p_9, text_21, p_10, text_22, text_24, div_3, div_4, button, span, text_25, text_26, span_1, button_class_value, text_28, menu, ul_1, li_5, li_6, li_7, li_8;
+
+		function load_handler(event) {
+			var state = component.get();
+			component.notifyReady(state.e, 'd3');
+		}
+
+		function load_handler_1(event) {
+			var state = component.get();
+			component.notifyReady(state.e, 'billboard');
+		}
+
+		function click_handler(event) {
+			component.action(event, 'hour');
+		}
+
+		function click_handler_1(event) {
+			component.action(event, 'day');
+		}
+
+		function click_handler_2(event) {
+			component.action(event, 'week');
+		}
+
+		function click_handler_3(event) {
+			component.action(event, 'month');
+		}
+
+		return {
+			c: function create() {
+				link = createElement("link");
+				script = createElement("script");
+				script_1 = createElement("script");
+				text = createText("\n\n");
+				article = createElement("article");
+				div = createElement("div");
+				p = createElement("p");
+				text_1 = createText(state.title);
+				text_2 = createText("\n        ");
+				div_1 = createElement("div");
+				text_3 = createText("\n\n        ");
+				div_2 = createElement("div");
+				ul = createElement("ul");
+				li = createElement("li");
+				p_1 = createElement("p");
+				p_1.textContent = "Probes";
+				text_5 = createText("\n                    ");
+				p_2 = createElement("p");
+				text_6 = createText(state.probes);
+				li_1 = createElement("li");
+				p_3 = createElement("p");
+				p_3.textContent = "Mean";
+				text_9 = createText("\n                    ");
+				p_4 = createElement("p");
+				text_10 = createText(state.mean);
+				li_2 = createElement("li");
+				p_5 = createElement("p");
+				p_5.textContent = "Min";
+				text_13 = createText("\n                    ");
+				p_6 = createElement("p");
+				text_14 = createText(state.min);
+				li_3 = createElement("li");
+				p_7 = createElement("p");
+				p_7.textContent = "Max";
+				text_17 = createText("\n                    ");
+				p_8 = createElement("p");
+				text_18 = createText(state.max);
+				li_4 = createElement("li");
+				p_9 = createElement("p");
+				p_9.textContent = "Errors";
+				text_21 = createText("\n                    ");
+				p_10 = createElement("p");
+				text_22 = createText(state.errors);
+				text_24 = createText("\n\n            ");
+				div_3 = createElement("div");
+				div_4 = createElement("div");
+				button = createElement("button");
+				span = createElement("span");
+				text_25 = createText(state.selectedLabel);
+				text_26 = createText("\n                        ");
+				span_1 = createElement("span");
+				text_28 = createText("\n                    ");
+				menu = createElement("menu");
+				ul_1 = createElement("ul");
+				li_5 = createElement("li");
+				li_5.textContent = "Hour";
+				li_6 = createElement("li");
+				li_6.textContent = "Day";
+				li_7 = createElement("li");
+				li_7.textContent = "Week";
+				li_8 = createElement("li");
+				li_8.textContent = "Month";
+				this.h();
+			},
+
+			h: function hydrate() {
+				link.rel = "stylesheet";
+				link.href = "/css/billboard.min.css";
+				script.src = "/js/vendors/d3.min.js";
+				script.async = true;
+				addListener(script, "load", load_handler);
+				script_1.src = "/js/vendors/billboard.min.js";
+				script_1.async = true;
+				addListener(script_1, "load", load_handler_1);
+				p.className = "chart-bars-2__title";
+				div_1.id = "js-chart-probe-latency";
+				div_1.className = "chart-bars-2__chart";
+				p_1.className = "chart-bars-2__details-title";
+				p_2.className = "chart-bars-2__details-value";
+				li.className = "chart-bars-2__detail";
+				p_3.className = "chart-bars-2__details-title";
+				p_4.className = "chart-bars-2__details-value";
+				li_1.className = "chart-bars-2__detail";
+				p_5.className = "chart-bars-2__details-title";
+				p_6.className = "chart-bars-2__details-value";
+				li_2.className = "chart-bars-2__detail";
+				p_7.className = "chart-bars-2__details-title";
+				p_8.className = "chart-bars-2__details-value";
+				li_3.className = "chart-bars-2__detail";
+				p_9.className = "chart-bars-2__details-title";
+				p_10.className = "chart-bars-2__details-value";
+				li_4.className = "chart-bars-2__detail";
+				ul.className = "row";
+				span.className = "js-selection";
+				span_1.className = "icon-arrow-down";
+				button.className = button_class_value = "btn btn-sm btn-primary btn-split dropdown-toggle btn-select " + state.dropdown;
+				setAttribute(button, "role", "button");
+				li_5.className = "js-hidden";
+				addListener(li_5, "click", click_handler);
+				addListener(li_6, "click", click_handler_1);
+				addListener(li_7, "click", click_handler_2);
+				addListener(li_8, "click", click_handler_3);
+				menu.className = "dropdown-menu dm-aligned dm-primary";
+				div_4.id = "js-probe-latency-select";
+				div_4.className = "dropdown-container";
+				div_3.className = "chart-bars-2__select";
+				div_2.className = "chart-bars-2__info row";
+				div.className = "chart-bars-2";
+				article.className = "panel-blue panel-3";
+			},
+
+			m: function mount(target, anchor) {
+				appendNode(link, document.head);
+				appendNode(script, document.head);
+				appendNode(script_1, document.head);
+				insertNode(text, target, anchor);
+				insertNode(article, target, anchor);
+				appendNode(div, article);
+				appendNode(p, div);
+				appendNode(text_1, p);
+				appendNode(text_2, div);
+				appendNode(div_1, div);
+				appendNode(text_3, div);
+				appendNode(div_2, div);
+				appendNode(ul, div_2);
+				appendNode(li, ul);
+				appendNode(p_1, li);
+				appendNode(text_5, li);
+				appendNode(p_2, li);
+				appendNode(text_6, p_2);
+				appendNode(li_1, ul);
+				appendNode(p_3, li_1);
+				appendNode(text_9, li_1);
+				appendNode(p_4, li_1);
+				appendNode(text_10, p_4);
+				appendNode(li_2, ul);
+				appendNode(p_5, li_2);
+				appendNode(text_13, li_2);
+				appendNode(p_6, li_2);
+				appendNode(text_14, p_6);
+				appendNode(li_3, ul);
+				appendNode(p_7, li_3);
+				appendNode(text_17, li_3);
+				appendNode(p_8, li_3);
+				appendNode(text_18, p_8);
+				appendNode(li_4, ul);
+				appendNode(p_9, li_4);
+				appendNode(text_21, li_4);
+				appendNode(p_10, li_4);
+				appendNode(text_22, p_10);
+				appendNode(text_24, div_2);
+				appendNode(div_3, div_2);
+				appendNode(div_4, div_3);
+				appendNode(button, div_4);
+				appendNode(span, button);
+				appendNode(text_25, span);
+				component.refs.lbl = span;
+				appendNode(text_26, button);
+				appendNode(span_1, button);
+				component.refs.btn = span_1;
+				appendNode(text_28, div_4);
+				appendNode(menu, div_4);
+				appendNode(ul_1, menu);
+				appendNode(li_5, ul_1);
+				appendNode(li_6, ul_1);
+				appendNode(li_7, ul_1);
+				appendNode(li_8, ul_1);
+			},
+
+			p: function update(changed, state) {
+				if (changed.title) {
+					text_1.data = state.title;
+				}
+
+				if (changed.probes) {
+					text_6.data = state.probes;
+				}
+
+				if (changed.mean) {
+					text_10.data = state.mean;
+				}
+
+				if (changed.min) {
+					text_14.data = state.min;
+				}
+
+				if (changed.max) {
+					text_18.data = state.max;
+				}
+
+				if (changed.errors) {
+					text_22.data = state.errors;
+				}
+
+				if (changed.selectedLabel) {
+					text_25.data = state.selectedLabel;
+				}
+
+				if (changed.dropdown && button_class_value !== (button_class_value = "btn btn-sm btn-primary btn-split dropdown-toggle btn-select " + state.dropdown)) {
+					button.className = button_class_value;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(link);
+				detachNode(script);
+				detachNode(script_1);
+				detachNode(text);
+				detachNode(article);
+			},
+
+			d: function destroy$$1() {
+				removeListener(script, "load", load_handler);
+				removeListener(script_1, "load", load_handler_1);
+				if (component.refs.lbl === span) component.refs.lbl = null;
+				if (component.refs.btn === span_1) component.refs.btn = null;
+				removeListener(li_5, "click", click_handler);
+				removeListener(li_6, "click", click_handler_1);
+				removeListener(li_7, "click", click_handler_2);
+				removeListener(li_8, "click", click_handler_3);
+			}
+		};
+	}
+
+	function ProbeChart(options) {
+		init(this, options);
+		this.refs = {};
+		this._state = assign(data$4(), options.data);
+
+		var _oncreate = oncreate$2.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+		}
+
+		this._fragment = create_main_fragment$4(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			callAll(this._oncreate);
+		}
+	}
+
+	assign(ProbeChart.prototype, methods$4, proto);
+
+	/* modules/server/app/pages/ApplicationView.html generated by Svelte v1.54.2 */
+	function data$5() {
+		return {
+			selected: 'info',
+			app: {}
+		};
+	}
+
+	function getStatus$1(online) {
+		return online ? 'online' : 'offline';
+	}
+
+	function active(selected, val) {
+		var type = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'visible';
+
+		if (type === 'visible') {
+			return selected === val ? 'visible' : 'hidden';
+		}
+		if (type === 'active') {
+			return selected === val ? 'active' : 'inactive';
+		}
+	}
+
+	var methods$5 = {
+		select: function select(section) {
+			this.set({ selected: section });
+		}
+	};
+
+	function oncreate$3() {
+		/**
+   * TODO: We should do this in our navigation
+   * step, so when it gets here is already 
+   * loaded(?)
+   */
+		var appid = this.get('appid');
+		bus.requestApplicationById(appid);
+
+		// this.store.observe('application', (app)=>{
+		//     if(!app) return console.log('boooooo');
+		//     if(app instanceof Promise) return;
+		//     console.log(app.sayHello());
+		// });
+
+		window.page = this;
+	}
+
+	function store_1$1() {
+		return _store;
+	}
+
+	function create_main_fragment$5(state, component) {
+		var header,
+		    div,
+		    h1,
+		    text_value = state.$application.identifier,
+		    text,
+		    text_1,
+		    span,
+		    div_data_status_value,
+		    text_3,
+		    text_5,
+		    text_6,
+		    div_1,
+		    ul,
+		    li,
+		    li_class_value,
+		    li_1,
+		    li_1_class_value,
+		    text_11,
+		    section,
+		    h2,
+		    text_13,
+		    div_2,
+		    article,
+		    table,
+		    tbody,
+		    tr,
+		    td,
+		    text_15,
+		    td_1,
+		    text_16_value = state.$application.appId,
+		    text_16,
+		    text_18,
+		    tr_1,
+		    td_2,
+		    text_20,
+		    td_3,
+		    text_21_value = state.$application.hostname,
+		    text_21,
+		    text_23,
+		    tr_2,
+		    td_4,
+		    text_25,
+		    td_5,
+		    text_26_value = state.$application.identifier,
+		    text_26,
+		    text_28,
+		    tr_3,
+		    td_6,
+		    text_30,
+		    td_7,
+		    text_31_value = state.$application.environment,
+		    text_31,
+		    text_33,
+		    tr_4,
+		    td_8,
+		    text_35,
+		    td_9,
+		    text_36_value = state.$application.createdAt,
+		    text_36,
+		    text_38,
+		    tr_5,
+		    td_10,
+		    text_40,
+		    td_11,
+		    text_41_value = state.$application.updatedAt,
+		    text_41,
+		    text_45,
+		    h3,
+		    text_47,
+		    hr,
+		    text_48,
+		    table_1,
+		    tbody_1,
+		    tr_6,
+		    text_51,
+		    tr_7,
+		    td_13,
+		    text_53,
+		    td_14,
+		    text_54_value = state.$application.appId,
+		    text_54,
+		    text_56,
+		    tr_8,
+		    text_59,
+		    tr_9,
+		    text_64,
+		    tr_10,
+		    text_67,
+		    tr_11,
+		    text_75,
+		    div_3,
+		    section_class_value;
+
+		var button = new Button({
+			root: component.root,
+			data: {
+				to: "/application/" + state.appid + "/edit",
+				text: "Edit Application",
+				type: "edit"
+			}
+		});
+
+		var chart = new ProbeChart({
+			root: component.root,
+			data: { title: "Probe Latency" }
+		});
+
+		function click_handler(event) {
+			component.select('info');
+		}
+
+		function click_handler_1(event) {
+			component.select('services');
+		}
+
+		return {
+			c: function create() {
+				header = createElement("header");
+				div = createElement("div");
+				h1 = createElement("h1");
+				text = createText(text_value);
+				text_1 = createText("\n        ");
+				span = createElement("span");
+				text_3 = createText("\n    ");
+				button._fragment.c();
+				text_5 = createText("\n\n\n");
+				chart._fragment.c();
+				text_6 = createText("\n\n");
+				div_1 = createElement("div");
+				ul = createElement("ul");
+				li = createElement("li");
+				li.innerHTML = "<a title=\"Info\">Info</a>";
+				li_1 = createElement("li");
+				li_1.innerHTML = "<a title=\"Services\">Services</a>";
+				text_11 = createText("\n\n    ");
+				section = createElement("section");
+				h2 = createElement("h2");
+				h2.textContent = "Information";
+				text_13 = createText("\n        ");
+				div_2 = createElement("div");
+				article = createElement("article");
+				table = createElement("table");
+				tbody = createElement("tbody");
+				tr = createElement("tr");
+				td = createElement("td");
+				td.textContent = "App ID:";
+				text_15 = createText("\n                            ");
+				td_1 = createElement("td");
+				text_16 = createText(text_16_value);
+				text_18 = createText("\n                        ");
+				tr_1 = createElement("tr");
+				td_2 = createElement("td");
+				td_2.textContent = "Hostname:";
+				text_20 = createText("\n                            ");
+				td_3 = createElement("td");
+				text_21 = createText(text_21_value);
+				text_23 = createText("\n                        ");
+				tr_2 = createElement("tr");
+				td_4 = createElement("td");
+				td_4.textContent = "Identifier:";
+				text_25 = createText("\n                            ");
+				td_5 = createElement("td");
+				text_26 = createText(text_26_value);
+				text_28 = createText("\n                        ");
+				tr_3 = createElement("tr");
+				td_6 = createElement("td");
+				td_6.textContent = "Environment:";
+				text_30 = createText("\n                            ");
+				td_7 = createElement("td");
+				text_31 = createText(text_31_value);
+				text_33 = createText("\n                        ");
+				tr_4 = createElement("tr");
+				td_8 = createElement("td");
+				td_8.textContent = "Created At:";
+				text_35 = createText("\n                            ");
+				td_9 = createElement("td");
+				text_36 = createText(text_36_value);
+				text_38 = createText("\n                        ");
+				tr_5 = createElement("tr");
+				td_10 = createElement("td");
+				td_10.textContent = "Updated At:";
+				text_40 = createText("\n                            ");
+				td_11 = createElement("td");
+				text_41 = createText(text_41_value);
+				text_45 = createText("\n                ");
+				h3 = createElement("h3");
+				h3.textContent = "Metadata";
+				text_47 = createText("\n                ");
+				hr = createElement("hr");
+				text_48 = createText("\n                ");
+				table_1 = createElement("table");
+				tbody_1 = createElement("tbody");
+				tr_6 = createElement("tr");
+				tr_6.innerHTML = "<td>Health</td>";
+				text_51 = createText("\n                        ");
+				tr_7 = createElement("tr");
+				td_13 = createElement("td");
+				td_13.textContent = "URL:";
+				text_53 = createText("\n                            ");
+				td_14 = createElement("td");
+				text_54 = createText(text_54_value);
+				text_56 = createText("\n                        ");
+				tr_8 = createElement("tr");
+				tr_8.innerHTML = "<td>REPL</td>";
+				text_59 = createText("\n                        ");
+				tr_9 = createElement("tr");
+				tr_9.innerHTML = "<td>Port:</td>\n                            <td>4567</td>";
+				text_64 = createText("\n                        ");
+				tr_10 = createElement("tr");
+				tr_10.innerHTML = "<td>Server</td>";
+				text_67 = createText("\n                        ");
+				tr_11 = createElement("tr");
+				tr_11.innerHTML = "<td>Port:</td>\n                            <td>9876</td>";
+				text_75 = createText("\n\n            ");
+				div_3 = createElement("div");
+				div_3.innerHTML = "<article><h2>Last Week Outages</h2>\n                    <table class=\"table-rows\"><tbody><tr><td>ECONNREFUSED</td>\n                                <td>03:32</td>\n                                <td>Wed, 31 Jan 2018 02:24:23</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>07:02</td>\n                                <td>Mon, 12 Dec 2017 23:14:37</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>01:31</td>\n                                <td>Wed, 31 Jan 2018 13:48:42</td></tr></tbody></table></article>";
+				this.h();
+			},
+
+			h: function hydrate() {
+				h1.className = "title";
+				span.className = "tag tag-status tag-small";
+				div.className = "title";
+				div.dataset.status = div_data_status_value = getStatus$1(state.$application.online);
+				header.className = "row";
+				li.className = li_class_value = active(state.selected, 'info', 'active');
+				addListener(li, "click", click_handler);
+				li_1.className = li_1_class_value = active(state.selected, 'services', 'active');
+				addListener(li_1, "click", click_handler_1);
+				ul.className = "tab-menu";
+				table.className = "table-cols";
+				tr_6.className = "t-mixed-title";
+				tr_7.className = "t-mixed-details";
+				tr_8.className = "t-mixed-title";
+				tr_9.className = "t-mixed-details";
+				tr_10.className = "t-mixed-title";
+				tr_11.className = "t-mixed-details";
+				table_1.className = "table-cols-mixed";
+				article.className = "panel-white panel-1 col-left";
+				div_3.className = "col col-right";
+				div_2.className = "layout-2-cols";
+				section.className = section_class_value = active(state.selected, 'info');
+				div_1.className = "layout-w";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(header, target, anchor);
+				appendNode(div, header);
+				appendNode(h1, div);
+				appendNode(text, h1);
+				appendNode(text_1, div);
+				appendNode(span, div);
+				appendNode(text_3, header);
+				button._mount(header, null);
+				insertNode(text_5, target, anchor);
+				chart._mount(target, anchor);
+				insertNode(text_6, target, anchor);
+				insertNode(div_1, target, anchor);
+				appendNode(ul, div_1);
+				appendNode(li, ul);
+				appendNode(li_1, ul);
+				appendNode(text_11, div_1);
+				appendNode(section, div_1);
+				appendNode(h2, section);
+				appendNode(text_13, section);
+				appendNode(div_2, section);
+				appendNode(article, div_2);
+				appendNode(table, article);
+				appendNode(tbody, table);
+				appendNode(tr, tbody);
+				appendNode(td, tr);
+				appendNode(text_15, tr);
+				appendNode(td_1, tr);
+				appendNode(text_16, td_1);
+				appendNode(text_18, tbody);
+				appendNode(tr_1, tbody);
+				appendNode(td_2, tr_1);
+				appendNode(text_20, tr_1);
+				appendNode(td_3, tr_1);
+				appendNode(text_21, td_3);
+				appendNode(text_23, tbody);
+				appendNode(tr_2, tbody);
+				appendNode(td_4, tr_2);
+				appendNode(text_25, tr_2);
+				appendNode(td_5, tr_2);
+				appendNode(text_26, td_5);
+				appendNode(text_28, tbody);
+				appendNode(tr_3, tbody);
+				appendNode(td_6, tr_3);
+				appendNode(text_30, tr_3);
+				appendNode(td_7, tr_3);
+				appendNode(text_31, td_7);
+				appendNode(text_33, tbody);
+				appendNode(tr_4, tbody);
+				appendNode(td_8, tr_4);
+				appendNode(text_35, tr_4);
+				appendNode(td_9, tr_4);
+				appendNode(text_36, td_9);
+				appendNode(text_38, tbody);
+				appendNode(tr_5, tbody);
+				appendNode(td_10, tr_5);
+				appendNode(text_40, tr_5);
+				appendNode(td_11, tr_5);
+				appendNode(text_41, td_11);
+				appendNode(text_45, article);
+				appendNode(h3, article);
+				appendNode(text_47, article);
+				appendNode(hr, article);
+				appendNode(text_48, article);
+				appendNode(table_1, article);
+				appendNode(tbody_1, table_1);
+				appendNode(tr_6, tbody_1);
+				appendNode(text_51, tbody_1);
+				appendNode(tr_7, tbody_1);
+				appendNode(td_13, tr_7);
+				appendNode(text_53, tr_7);
+				appendNode(td_14, tr_7);
+				appendNode(text_54, td_14);
+				appendNode(text_56, tbody_1);
+				appendNode(tr_8, tbody_1);
+				appendNode(text_59, tbody_1);
+				appendNode(tr_9, tbody_1);
+				appendNode(text_64, tbody_1);
+				appendNode(tr_10, tbody_1);
+				appendNode(text_67, tbody_1);
+				appendNode(tr_11, tbody_1);
+				appendNode(text_75, div_2);
+				appendNode(div_3, div_2);
+			},
+
+			p: function update(changed, state) {
+				if (changed.$application && text_value !== (text_value = state.$application.identifier)) {
+					text.data = text_value;
+				}
+
+				if (changed.$application && div_data_status_value !== (div_data_status_value = getStatus$1(state.$application.online))) {
+					div.dataset.status = div_data_status_value;
+				}
+
+				var button_changes = {};
+				if (changed.appid) button_changes.to = "/application/" + state.appid + "/edit";
+				button._set(button_changes);
+
+				if (changed.selected && li_class_value !== (li_class_value = active(state.selected, 'info', 'active'))) {
+					li.className = li_class_value;
+				}
+
+				if (changed.selected && li_1_class_value !== (li_1_class_value = active(state.selected, 'services', 'active'))) {
+					li_1.className = li_1_class_value;
+				}
+
+				if (changed.$application && text_16_value !== (text_16_value = state.$application.appId)) {
+					text_16.data = text_16_value;
+				}
+
+				if (changed.$application && text_21_value !== (text_21_value = state.$application.hostname)) {
+					text_21.data = text_21_value;
+				}
+
+				if (changed.$application && text_26_value !== (text_26_value = state.$application.identifier)) {
+					text_26.data = text_26_value;
+				}
+
+				if (changed.$application && text_31_value !== (text_31_value = state.$application.environment)) {
+					text_31.data = text_31_value;
+				}
+
+				if (changed.$application && text_36_value !== (text_36_value = state.$application.createdAt)) {
+					text_36.data = text_36_value;
+				}
+
+				if (changed.$application && text_41_value !== (text_41_value = state.$application.updatedAt)) {
+					text_41.data = text_41_value;
+				}
+
+				if (changed.$application && text_54_value !== (text_54_value = state.$application.appId)) {
+					text_54.data = text_54_value;
+				}
+
+				if (changed.selected && section_class_value !== (section_class_value = active(state.selected, 'info'))) {
+					section.className = section_class_value;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(header);
+				detachNode(text_5);
+				chart._unmount();
+				detachNode(text_6);
+				detachNode(div_1);
+			},
+
+			d: function destroy$$1() {
+				button.destroy(false);
+				chart.destroy(false);
+				removeListener(li, "click", click_handler);
+				removeListener(li_1, "click", click_handler_1);
+			}
+		};
+	}
+
+	function ApplicationView(options) {
+		init(this, options);
+		this.store = store_1$1();
+		this._state = assign(this.store._init(["application"]), data$5(), options.data);
+		this.store._add(this, ["application"]);
+
+		this._handlers.destroy = [removeFromStore];
+
+		var _oncreate = oncreate$3.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+			this._beforecreate = [];
+			this._aftercreate = [];
+		}
+
+		this._fragment = create_main_fragment$5(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			this._lock = true;
+			callAll(this._beforecreate);
+			callAll(this._oncreate);
+			callAll(this._aftercreate);
+			this._lock = false;
+		}
+	}
+
+	assign(ApplicationView.prototype, methods$5, proto);
+
+	/* modules/server/app/pages/ApplicationAdd.html generated by Svelte v1.54.2 */
+	function identity(item) {
+		if (!item.appId && !item.hostname && !item.environment) return '';
+		return (item.appId + '.' + item.environment + '@' + item.hostname).toLowerCase();
+	}
+
+	function data$6() {
+		return {
+			item: {
+				appId: '',
+				hostname: '',
+				identifier: '',
+				environment: '',
+				data: ''
+			}
+		};
+	}
+
+	var methods$6 = {
+		cancel: function cancel(event) {
+			var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+			if (event && event.preventDefault) {
+				event.preventDefault();
+			}
+
+			if (path) {
+				bus.goto(path);
+			} else {
+				bus.goBack();
+			}
+		},
+		save: function save(event, item) {
+			if (event && event.preventDefault) {
+				event.preventDefault();
+			}
+			bus.createApplication(item);
+		}
+	};
+
+	function oncreate$4() {
+		var _this4 = this;
+
+		this.observe('identity', function (value, old) {
+			var item = _this4.get('item');
+			item.identifier = value;
+			_this4.set(item);
+		});
+	}
+
+	function create_main_fragment$6(state, component) {
+		var header,
+		    text_3,
+		    div_1,
+		    ul,
+		    text_6,
+		    section,
+		    form,
+		    h2,
+		    text_8,
+		    article,
+		    div_2,
+		    label,
+		    text_10,
+		    input,
+		    input_updating = false,
+		    text_12,
+		    div_3,
+		    label_1,
+		    text_14,
+		    input_1,
+		    input_1_updating = false,
+		    text_16,
+		    div_4,
+		    label_2,
+		    text_18,
+		    input_2,
+		    input_2_updating = false,
+		    text_20,
+		    div_5,
+		    label_3,
+		    text_22,
+		    input_3,
+		    input_3_updating = false,
+		    text_25,
+		    h2_1,
+		    text_27,
+		    article_1,
+		    div_6,
+		    label_4,
+		    text_29,
+		    textarea,
+		    textarea_updating = false,
+		    text_32,
+		    div_7,
+		    button,
+		    text_34,
+		    button_1;
+
+		function input_input_handler() {
+			var state = component.get();
+			input_updating = true;
+			state.item.appId = input.value;
+			component.set({ item: state.item });
+			input_updating = false;
+		}
+
+		function input_1_input_handler() {
+			var state = component.get();
+			input_1_updating = true;
+			state.item.hostname = input_1.value;
+			component.set({ item: state.item });
+			input_1_updating = false;
+		}
+
+		function input_2_input_handler() {
+			var state = component.get();
+			input_2_updating = true;
+			state.item.environment = input_2.value;
+			component.set({ item: state.item });
+			input_2_updating = false;
+		}
+
+		function input_3_input_handler() {
+			var state = component.get();
+			input_3_updating = true;
+			state.item.identifier = input_3.value;
+			component.set({ item: state.item });
+			input_3_updating = false;
+		}
+
+		function textarea_input_handler() {
+			var state = component.get();
+			textarea_updating = true;
+			state.item.data = textarea.value;
+			component.set({ item: state.item });
+			textarea_updating = false;
+		}
+
+		function click_handler(event) {
+			component.cancel(event);
+		}
+
+		function click_handler_1(event) {
+			var state = component.get();
+			component.save(event, state.item);
+		}
+
+		return {
+			c: function create() {
+				header = createElement("header");
+				header.innerHTML = "<div class=\"title\" data-status=\"online\"><h1 class=\"title\">Application: New</h1></div>";
+				text_3 = createText("\n\n\n");
+				div_1 = createElement("div");
+				ul = createElement("ul");
+				ul.innerHTML = "<li class=\"active\"><a href=\"#\" title=\"Info\">Information</a></li>\n    ";
+				text_6 = createText("\n\n    ");
+				section = createElement("section");
+				form = createElement("form");
+				h2 = createElement("h2");
+				h2.textContent = "Information";
+				text_8 = createText("\n            ");
+				article = createElement("article");
+				div_2 = createElement("div");
+				label = createElement("label");
+				label.textContent = "App ID";
+				text_10 = createText("\n                    ");
+				input = createElement("input");
+				text_12 = createText("\n\n                ");
+				div_3 = createElement("div");
+				label_1 = createElement("label");
+				label_1.textContent = "Hostname";
+				text_14 = createText("\n                    ");
+				input_1 = createElement("input");
+				text_16 = createText("\n\n                ");
+				div_4 = createElement("div");
+				label_2 = createElement("label");
+				label_2.textContent = "Environment";
+				text_18 = createText("\n                    ");
+				input_2 = createElement("input");
+				text_20 = createText("\n\n                ");
+				div_5 = createElement("div");
+				label_3 = createElement("label");
+				label_3.textContent = "Identifier";
+				text_22 = createText("\n                    ");
+				input_3 = createElement("input");
+				text_25 = createText("\n\n            ");
+				h2_1 = createElement("h2");
+				h2_1.textContent = "Metadata";
+				text_27 = createText("\n            ");
+				article_1 = createElement("article");
+				div_6 = createElement("div");
+				label_4 = createElement("label");
+				label_4.textContent = "Data";
+				text_29 = createText("\n                    ");
+				textarea = createElement("textarea");
+				text_32 = createText("\n\n            ");
+				div_7 = createElement("div");
+				button = createElement("button");
+				button.textContent = "Cancel";
+				text_34 = createText("\n                ");
+				button_1 = createElement("button");
+				button_1.textContent = "Save";
+				this.h();
+			},
+
+			h: function hydrate() {
+				header.className = "row";
+				ul.className = "tab-menu";
+				label.htmlFor = "app-id";
+				addListener(input, "input", input_input_handler);
+				input.type = "text";
+				input.placeholder = "App ID";
+				div_2.className = "form-group";
+				label_1.htmlFor = "Hostname";
+				addListener(input_1, "input", input_1_input_handler);
+				input_1.type = "text";
+				input_1.placeholder = "Hostname";
+				div_3.className = "form-group";
+				label_2.htmlFor = "environment";
+				addListener(input_2, "input", input_2_input_handler);
+				input_2.type = "text";
+				input_2.placeholder = "Environment";
+				div_4.className = "form-group";
+				label_3.htmlFor = "identifier";
+				addListener(input_3, "input", input_3_input_handler);
+				input_3.value = state.identity;
+				input_3.type = "text";
+				input_3.placeholder = "Identifier";
+				div_5.className = "form-group";
+				article.className = "panel-white panel-1";
+				label_4.htmlFor = "data";
+				addListener(textarea, "input", textarea_input_handler);
+				textarea.id = "data";
+				textarea.value = "Hotdesk";
+				div_6.className = "form-group";
+				article_1.className = "panel-white panel-1";
+				button.className = "btn btn-secondary";
+				setAttribute(button, "role", "button");
+				addListener(button, "click", click_handler);
+				button_1.className = "btn btn-primary";
+				setAttribute(button_1, "role", "button");
+				addListener(button_1, "click", click_handler_1);
+				div_7.className = "row row-right";
+				form.className = "form-rows";
+				section.id = "info";
+				div_1.className = "layout-w";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(header, target, anchor);
+				insertNode(text_3, target, anchor);
+				insertNode(div_1, target, anchor);
+				appendNode(ul, div_1);
+				appendNode(text_6, div_1);
+				appendNode(section, div_1);
+				appendNode(form, section);
+				appendNode(h2, form);
+				appendNode(text_8, form);
+				appendNode(article, form);
+				appendNode(div_2, article);
+				appendNode(label, div_2);
+				appendNode(text_10, div_2);
+				appendNode(input, div_2);
+
+				input.value = state.item.appId;
+
+				appendNode(text_12, article);
+				appendNode(div_3, article);
+				appendNode(label_1, div_3);
+				appendNode(text_14, div_3);
+				appendNode(input_1, div_3);
+
+				input_1.value = state.item.hostname;
+
+				appendNode(text_16, article);
+				appendNode(div_4, article);
+				appendNode(label_2, div_4);
+				appendNode(text_18, div_4);
+				appendNode(input_2, div_4);
+
+				input_2.value = state.item.environment;
+
+				appendNode(text_20, article);
+				appendNode(div_5, article);
+				appendNode(label_3, div_5);
+				appendNode(text_22, div_5);
+				appendNode(input_3, div_5);
+
+				input_3.value = state.item.identifier;
+
+				appendNode(text_25, form);
+				appendNode(h2_1, form);
+				appendNode(text_27, form);
+				appendNode(article_1, form);
+				appendNode(div_6, article_1);
+				appendNode(label_4, div_6);
+				appendNode(text_29, div_6);
+				appendNode(textarea, div_6);
+
+				textarea.value = state.item.data;
+
+				appendNode(text_32, form);
+				appendNode(div_7, form);
+				appendNode(button, div_7);
+				appendNode(text_34, div_7);
+				appendNode(button_1, div_7);
+			},
+
+			p: function update(changed, state) {
+				if (!input_updating) input.value = state.item.appId;
+				if (!input_1_updating) input_1.value = state.item.hostname;
+				if (!input_2_updating) input_2.value = state.item.environment;
+				if (!input_3_updating) input_3.value = state.item.identifier;
+				if (changed.identity) {
+					input_3.value = state.identity;
+				}
+
+				if (!textarea_updating) textarea.value = state.item.data;
+			},
+
+			u: function unmount() {
+				detachNode(header);
+				detachNode(text_3);
+				detachNode(div_1);
+			},
+
+			d: function destroy$$1() {
+				removeListener(input, "input", input_input_handler);
+				removeListener(input_1, "input", input_1_input_handler);
+				removeListener(input_2, "input", input_2_input_handler);
+				removeListener(input_3, "input", input_3_input_handler);
+				removeListener(textarea, "input", textarea_input_handler);
+				removeListener(button, "click", click_handler);
+				removeListener(button_1, "click", click_handler_1);
+			}
+		};
+	}
+
+	function ApplicationAdd(options) {
+		init(this, options);
+		this._state = assign(data$6(), options.data);
+		this._recompute({ item: 1 }, this._state);
+
+		var _oncreate = oncreate$4.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+		}
+
+		this._fragment = create_main_fragment$6(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			callAll(this._oncreate);
+		}
+	}
+
+	assign(ApplicationAdd.prototype, methods$6, proto);
+
+	ApplicationAdd.prototype._recompute = function _recompute(changed, state) {
+		if (changed.item) {
+			if (differs(state.identity, state.identity = identity(state.item))) changed.identity = true;
+		}
+	};
+
+	/* modules/server/app/pages/ApplicationEdit.html generated by Svelte v1.54.2 */
+	function prevent(event) {
+		if (event && event.preventDefault) {
+			event.preventDefault();
+		}
+	}
+
+	function data$7() {
+		return {
+			selected: 'info',
+			service: {
+				//application
+				//endpoint
+				//uuid
+				errorAlterThreshold: 1,
+				interval: 30000,
+				latencyLimit: 5000,
+				responseAlertThreshold: 1,
+				timeoutAfter: 30000
+			},
+			attributes: []
+		};
+	}
+
+	function formatDate() {
+		var datetime = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+
+		return datetime.replace('Z', '');
+	}
+
+	function getStatus$2(online) {
+		return online ? 'online' : 'offline';
+	}
+
+	function active$1(selected, val) {
+		var type = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'visible';
+
+		if (type === 'visible') {
+			return selected === val ? 'visible' : 'hidden';
+		}
+		if (type === 'active') {
+			return selected === val ? 'active' : 'inactive';
+		}
+	}
+
+	var methods$7 = {
+		select: function select(section) {
+			//this should update #
+			this.set({ selected: section });
+		},
+		setAttributes: function setAttributes() {
+			var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+			var attributes = this.get('attributes') || {};
+
+			function parseKeys(obj) {
+				var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+				Object.keys(obj).forEach(function (key) {
+
+					var value = obj[key];
+
+					if ((typeof value === 'undefined' ? 'undefined' : _typeof2(value)) === 'object') {
+						console.log('key', key);
+						return parseKeys(value, path);
+					}
+					// path.push(key);
+
+					attributes.push({
+						key: key,
+						value: value
+					});
+				});
+				path = [];
+			}
+			parseKeys(data);
+
+			this.set({ attributes: attributes });
+		},
+		submit: function submit(event) {
+			prevent(event);
+			//TODO: Track changeset and send that.
+			var app = this.store.get('application');
+			bus.updateApplication(app);
+		},
+		cancel: function cancel(event) {
+			var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+			prevent(event);
+
+			if (path) {
+				bus.goto(path);
+			} else {
+				bus.goBack();
+			}
+		}
+	};
+
+	function oncreate$5() {
+		var _this5 = this;
+
+		var appid = this.get('appid');
+		bus.requestApplicationById(appid);
+
+		var setApp = this.store.observe('application', function (app) {
+			if (typeof app.then === 'function') {
+				return;
+			}
+
+			_this5.setAttributes(app.data);
+
+			setApp.cancel();
+		});
+
+		window.page = this;
+	}
+
+	function store_1$2() {
+		return _store;
+	}
+
+	function encapsulateStyles(node) {
+		setAttribute(node, "svelte-3348269699", "");
+	}
+
+	function add_css() {
+		var style = createElement("style");
+		style.id = 'svelte-3348269699-style';
+		style.textContent = "[svelte-3348269699].visible,[svelte-3348269699] .visible{display:inherit}[svelte-3348269699].hidden,[svelte-3348269699] .hidden{display:none}";
+		appendNode(style, document.head);
+	}
+
+	function create_main_fragment$7(state, component) {
+		var header,
+		    div,
+		    h1,
+		    text_value = state.$application.identifier,
+		    text,
+		    text_1,
+		    span,
+		    div_data_status_value,
+		    text_4,
+		    div_1,
+		    ul,
+		    li,
+		    li_class_value,
+		    li_1,
+		    li_1_class_value,
+		    text_9,
+		    form,
+		    section,
+		    h2,
+		    text_11,
+		    article,
+		    div_2,
+		    label,
+		    text_13,
+		    input,
+		    input_updating = false,
+		    text_15,
+		    div_3,
+		    label_1,
+		    text_17,
+		    input_1,
+		    input_1_updating = false,
+		    text_19,
+		    div_4,
+		    label_2,
+		    text_21,
+		    input_2,
+		    input_2_updating = false,
+		    text_23,
+		    div_5,
+		    label_3,
+		    text_25,
+		    input_3,
+		    input_3_updating = false,
+		    text_27,
+		    div_6,
+		    label_4,
+		    text_29,
+		    input_4,
+		    input_4_value_value,
+		    text_31,
+		    div_7,
+		    label_5,
+		    text_33,
+		    input_5,
+		    input_5_value_value,
+		    text_36,
+		    h2_1,
+		    text_38,
+		    article_1,
+		    text_39,
+		    div_8,
+		    section_class_value,
+		    text_45,
+		    section_1,
+		    h2_2,
+		    text_47,
+		    article_2,
+		    div_9,
+		    label_7,
+		    text_49,
+		    input_7,
+		    input_7_updating = false,
+		    text_51,
+		    div_10,
+		    label_8,
+		    text_53,
+		    input_8,
+		    input_8_updating = false,
+		    text_55,
+		    div_11,
+		    label_9,
+		    text_57,
+		    input_9,
+		    input_9_updating = false,
+		    text_59,
+		    div_12,
+		    label_10,
+		    text_61,
+		    input_10,
+		    input_10_updating = false,
+		    text_63,
+		    div_13,
+		    label_11,
+		    text_65,
+		    input_11,
+		    input_11_updating = false,
+		    section_1_class_value,
+		    text_69,
+		    div_14,
+		    button,
+		    text_71,
+		    button_1;
+
+		function click_handler(event) {
+			component.select('info');
+		}
+
+		function click_handler_1(event) {
+			component.select('services');
+		}
+
+		function input_input_handler() {
+			var state = component.get();
+			var $ = component.store.get();
+			input_updating = true;
+			state.$application.appId = input.value;
+			component.store.set({ application: $.application });
+			input_updating = false;
+		}
+
+		function input_1_input_handler() {
+			var state = component.get();
+			var $ = component.store.get();
+			input_1_updating = true;
+			state.$application.hostname = input_1.value;
+			component.store.set({ application: $.application });
+			input_1_updating = false;
+		}
+
+		function input_2_input_handler() {
+			var state = component.get();
+			var $ = component.store.get();
+			input_2_updating = true;
+			state.$application.identifier = input_2.value;
+			component.store.set({ application: $.application });
+			input_2_updating = false;
+		}
+
+		function input_3_input_handler() {
+			var state = component.get();
+			var $ = component.store.get();
+			input_3_updating = true;
+			state.$application.environment = input_3.value;
+			component.store.set({ application: $.application });
+			input_3_updating = false;
+		}
+
+		var attributes = state.attributes;
+
+		var each_blocks = [];
+
+		for (var i = 0; i < attributes.length; i += 1) {
+			each_blocks[i] = create_each_block$1(state, attributes, attributes[i], i, component);
+		}
+
+		function input_7_input_handler() {
+			var state = component.get();
+			input_7_updating = true;
+			state.service.interval = toNumber(input_7.value);
+			component.set({ service: state.service });
+			input_7_updating = false;
+		}
+
+		function input_8_input_handler() {
+			var state = component.get();
+			input_8_updating = true;
+			state.service.latencyLimit = toNumber(input_8.value);
+			component.set({ service: state.service });
+			input_8_updating = false;
+		}
+
+		function input_9_input_handler() {
+			var state = component.get();
+			input_9_updating = true;
+			state.service.responseAlertThreshold = toNumber(input_9.value);
+			component.set({ service: state.service });
+			input_9_updating = false;
+		}
+
+		function input_10_input_handler() {
+			var state = component.get();
+			input_10_updating = true;
+			state.service.errorAlterThreshold = toNumber(input_10.value);
+			component.set({ service: state.service });
+			input_10_updating = false;
+		}
+
+		function input_11_input_handler() {
+			var state = component.get();
+			input_11_updating = true;
+			state.service.timeoutAfter = toNumber(input_11.value);
+			component.set({ service: state.service });
+			input_11_updating = false;
+		}
+
+		function click_handler_2(event) {
+			component.cancel(event);
+		}
+
+		function click_handler_3(event) {
+			component.submit(event);
+		}
+
+		return {
+			c: function create() {
+				header = createElement("header");
+				div = createElement("div");
+				h1 = createElement("h1");
+				text = createText(text_value);
+				text_1 = createText("\n        ");
+				span = createElement("span");
+				text_4 = createText("\n\n\n");
+				div_1 = createElement("div");
+				ul = createElement("ul");
+				li = createElement("li");
+				li.innerHTML = "<a title=\"Info\">Info</a>";
+				li_1 = createElement("li");
+				li_1.innerHTML = "<a title=\"Services\">Services</a>";
+				text_9 = createText("\n    ");
+				form = createElement("form");
+				section = createElement("section");
+				h2 = createElement("h2");
+				h2.textContent = "Information";
+				text_11 = createText("\n            ");
+				article = createElement("article");
+				div_2 = createElement("div");
+				label = createElement("label");
+				label.textContent = "App ID";
+				text_13 = createText("\n                    ");
+				input = createElement("input");
+				text_15 = createText("\n\n                ");
+				div_3 = createElement("div");
+				label_1 = createElement("label");
+				label_1.textContent = "Hostname";
+				text_17 = createText("\n                    ");
+				input_1 = createElement("input");
+				text_19 = createText("\n\n                ");
+				div_4 = createElement("div");
+				label_2 = createElement("label");
+				label_2.textContent = "Identifier";
+				text_21 = createText("\n                    ");
+				input_2 = createElement("input");
+				text_23 = createText("\n\n                ");
+				div_5 = createElement("div");
+				label_3 = createElement("label");
+				label_3.textContent = "Environment";
+				text_25 = createText("\n                    ");
+				input_3 = createElement("input");
+				text_27 = createText("\n\n                ");
+				div_6 = createElement("div");
+				label_4 = createElement("label");
+				label_4.textContent = "Created At";
+				text_29 = createText("\n                    ");
+				input_4 = createElement("input");
+				text_31 = createText("\n\n                ");
+				div_7 = createElement("div");
+				label_5 = createElement("label");
+				label_5.textContent = "Updated At";
+				text_33 = createText("\n                    ");
+				input_5 = createElement("input");
+				text_36 = createText("\n\n            ");
+				h2_1 = createElement("h2");
+				h2_1.textContent = "Metadata";
+				text_38 = createText("\n            ");
+				article_1 = createElement("article");
+
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				text_39 = createText("\n                ");
+				div_8 = createElement("div");
+				div_8.innerHTML = "<label for=\"upadted\">Attribute</label>\n                    <input value=\"\" type=\"text\">";
+				text_45 = createText("\n    ");
+				section_1 = createElement("section");
+				h2_2 = createElement("h2");
+				h2_2.textContent = "Services";
+				text_47 = createText("\n            ");
+				article_2 = createElement("article");
+				div_9 = createElement("div");
+				label_7 = createElement("label");
+				label_7.textContent = "Interval";
+				text_49 = createText("\n                    ");
+				input_7 = createElement("input");
+				text_51 = createText("\n\n                ");
+				div_10 = createElement("div");
+				label_8 = createElement("label");
+				label_8.textContent = "Latency Limit";
+				text_53 = createText("\n                    ");
+				input_8 = createElement("input");
+				text_55 = createText("\n\n                ");
+				div_11 = createElement("div");
+				label_9 = createElement("label");
+				label_9.textContent = "Response Alert Threshold";
+				text_57 = createText("\n                    ");
+				input_9 = createElement("input");
+				text_59 = createText("\n\n                ");
+				div_12 = createElement("div");
+				label_10 = createElement("label");
+				label_10.textContent = "Error Alert Threshold";
+				text_61 = createText("\n                    ");
+				input_10 = createElement("input");
+				text_63 = createText("\n\n                ");
+				div_13 = createElement("div");
+				label_11 = createElement("label");
+				label_11.textContent = "Timeout After";
+				text_65 = createText("\n                    ");
+				input_11 = createElement("input");
+				text_69 = createText("\n    ");
+				div_14 = createElement("div");
+				button = createElement("button");
+				button.textContent = "Cancel";
+				text_71 = createText("\n        ");
+				button_1 = createElement("button");
+				button_1.textContent = "Save";
+				this.h();
+			},
+
+			h: function hydrate() {
+				encapsulateStyles(header);
+				h1.className = "title";
+				span.className = "tag tag-status tag-small";
+				div.className = "title";
+				div.dataset.status = div_data_status_value = getStatus$2(state.$application.online);
+				header.className = "row";
+				encapsulateStyles(div_1);
+				li.className = li_class_value = active$1(state.selected, 'info', 'active');
+				addListener(li, "click", click_handler);
+				li_1.className = li_1_class_value = active$1(state.selected, 'services', 'active');
+				addListener(li_1, "click", click_handler_1);
+				ul.className = "tab-menu";
+				label.htmlFor = "app-id";
+				addListener(input, "input", input_input_handler);
+				input.id = "app-id";
+				input.type = "text";
+				div_2.className = "form-group";
+				label_1.htmlFor = "hostname";
+				addListener(input_1, "input", input_1_input_handler);
+				input_1.id = "hostname";
+				input_1.type = "text";
+				div_3.className = "form-group";
+				label_2.htmlFor = "identifier";
+				addListener(input_2, "input", input_2_input_handler);
+				input_2.id = "identifier";
+				input_2.type = "text";
+				div_4.className = "form-group";
+				label_3.htmlFor = "environment";
+				addListener(input_3, "input", input_3_input_handler);
+				input_3.id = "environment";
+				input_3.type = "text";
+				div_5.className = "form-group";
+				label_4.htmlFor = "created";
+				input_4.id = "created";
+				input_4.value = input_4_value_value = formatDate(state.$application.createdAt);
+				input_4.type = "datetime-local";
+				input_4.disabled = true;
+				div_6.className = "form-group";
+				label_5.htmlFor = "upadted";
+				input_5.id = "updated";
+				input_5.value = input_5_value_value = formatDate(state.$application.updatedAt);
+				input_5.type = "datetime-local";
+				input_5.disabled = true;
+				div_7.className = "form-group";
+				article.className = "panel-white panel-1";
+				div_8.className = "form-group";
+				article_1.className = "panel-white panel-1";
+				section.id = "info";
+				section.className = section_class_value = active$1(state.selected, 'info');
+				label_7.htmlFor = "interval";
+				addListener(input_7, "input", input_7_input_handler);
+				input_7.name = "interval";
+				input_7.type = "number";
+				div_9.className = "form-group";
+				label_8.htmlFor = "latency";
+				addListener(input_8, "input", input_8_input_handler);
+				input_8.name = "latency";
+				input_8.type = "number";
+				div_10.className = "form-group";
+				label_9.htmlFor = "threshold";
+				addListener(input_9, "input", input_9_input_handler);
+				input_9.name = "threshold";
+				input_9.type = "number";
+				div_11.className = "form-group";
+				label_10.htmlFor = "errorThreshold";
+				addListener(input_10, "input", input_10_input_handler);
+				input_10.name = "errorThreshold";
+				input_10.type = "number";
+				div_12.className = "form-group";
+				label_11.htmlFor = "timeout";
+				addListener(input_11, "input", input_11_input_handler);
+				input_11.name = "timeout";
+				input_11.type = "number";
+				div_13.className = "form-group";
+				article_2.className = "panel-white panel-1";
+				section_1.id = "services";
+				section_1.className = section_1_class_value = active$1(state.selected, 'services');
+				button.className = "btn btn-secondary";
+				setAttribute(button, "role", "button");
+				addListener(button, "click", click_handler_2);
+				button_1.className = "btn btn-primary";
+				addListener(button_1, "click", click_handler_3);
+				div_14.className = "row row-right";
+				form.className = "form-rows";
+				div_1.className = "layout-w";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(header, target, anchor);
+				appendNode(div, header);
+				appendNode(h1, div);
+				appendNode(text, h1);
+				appendNode(text_1, div);
+				appendNode(span, div);
+				insertNode(text_4, target, anchor);
+				insertNode(div_1, target, anchor);
+				appendNode(ul, div_1);
+				appendNode(li, ul);
+				appendNode(li_1, ul);
+				appendNode(text_9, div_1);
+				appendNode(form, div_1);
+				appendNode(section, form);
+				appendNode(h2, section);
+				appendNode(text_11, section);
+				appendNode(article, section);
+				appendNode(div_2, article);
+				appendNode(label, div_2);
+				appendNode(text_13, div_2);
+				appendNode(input, div_2);
+
+				input.value = state.$application.appId;
+
+				appendNode(text_15, article);
+				appendNode(div_3, article);
+				appendNode(label_1, div_3);
+				appendNode(text_17, div_3);
+				appendNode(input_1, div_3);
+
+				input_1.value = state.$application.hostname;
+
+				appendNode(text_19, article);
+				appendNode(div_4, article);
+				appendNode(label_2, div_4);
+				appendNode(text_21, div_4);
+				appendNode(input_2, div_4);
+
+				input_2.value = state.$application.identifier;
+
+				appendNode(text_23, article);
+				appendNode(div_5, article);
+				appendNode(label_3, div_5);
+				appendNode(text_25, div_5);
+				appendNode(input_3, div_5);
+
+				input_3.value = state.$application.environment;
+
+				appendNode(text_27, article);
+				appendNode(div_6, article);
+				appendNode(label_4, div_6);
+				appendNode(text_29, div_6);
+				appendNode(input_4, div_6);
+				appendNode(text_31, article);
+				appendNode(div_7, article);
+				appendNode(label_5, div_7);
+				appendNode(text_33, div_7);
+				appendNode(input_5, div_7);
+				appendNode(text_36, section);
+				appendNode(h2_1, section);
+				appendNode(text_38, section);
+				appendNode(article_1, section);
+
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].m(article_1, null);
+				}
+
+				appendNode(text_39, article_1);
+				appendNode(div_8, article_1);
+				appendNode(text_45, form);
+				appendNode(section_1, form);
+				appendNode(h2_2, section_1);
+				appendNode(text_47, section_1);
+				appendNode(article_2, section_1);
+				appendNode(div_9, article_2);
+				appendNode(label_7, div_9);
+				appendNode(text_49, div_9);
+				appendNode(input_7, div_9);
+
+				input_7.value = state.service.interval;
+
+				appendNode(text_51, article_2);
+				appendNode(div_10, article_2);
+				appendNode(label_8, div_10);
+				appendNode(text_53, div_10);
+				appendNode(input_8, div_10);
+
+				input_8.value = state.service.latencyLimit;
+
+				appendNode(text_55, article_2);
+				appendNode(div_11, article_2);
+				appendNode(label_9, div_11);
+				appendNode(text_57, div_11);
+				appendNode(input_9, div_11);
+
+				input_9.value = state.service.responseAlertThreshold;
+
+				appendNode(text_59, article_2);
+				appendNode(div_12, article_2);
+				appendNode(label_10, div_12);
+				appendNode(text_61, div_12);
+				appendNode(input_10, div_12);
+
+				input_10.value = state.service.errorAlterThreshold;
+
+				appendNode(text_63, article_2);
+				appendNode(div_13, article_2);
+				appendNode(label_11, div_13);
+				appendNode(text_65, div_13);
+				appendNode(input_11, div_13);
+
+				input_11.value = state.service.timeoutAfter;
+
+				appendNode(text_69, form);
+				appendNode(div_14, form);
+				appendNode(button, div_14);
+				appendNode(text_71, div_14);
+				appendNode(button_1, div_14);
+			},
+
+			p: function update(changed, state) {
+				if (changed.$application && text_value !== (text_value = state.$application.identifier)) {
+					text.data = text_value;
+				}
+
+				if (changed.$application && div_data_status_value !== (div_data_status_value = getStatus$2(state.$application.online))) {
+					div.dataset.status = div_data_status_value;
+				}
+
+				if (changed.selected && li_class_value !== (li_class_value = active$1(state.selected, 'info', 'active'))) {
+					li.className = li_class_value;
+				}
+
+				if (changed.selected && li_1_class_value !== (li_1_class_value = active$1(state.selected, 'services', 'active'))) {
+					li_1.className = li_1_class_value;
+				}
+
+				if (!input_updating) input.value = state.$application.appId;
+				if (!input_1_updating) input_1.value = state.$application.hostname;
+				if (!input_2_updating) input_2.value = state.$application.identifier;
+				if (!input_3_updating) input_3.value = state.$application.environment;
+				if (changed.$application && input_4_value_value !== (input_4_value_value = formatDate(state.$application.createdAt))) {
+					input_4.value = input_4_value_value;
+				}
+
+				if (changed.$application && input_5_value_value !== (input_5_value_value = formatDate(state.$application.updatedAt))) {
+					input_5.value = input_5_value_value;
+				}
+
+				var attributes = state.attributes;
+
+				if (changed.attributes) {
+					for (var i = 0; i < attributes.length; i += 1) {
+						if (each_blocks[i]) {
+							each_blocks[i].p(changed, state, attributes, attributes[i], i);
+						} else {
+							each_blocks[i] = create_each_block$1(state, attributes, attributes[i], i, component);
+							each_blocks[i].c();
+							each_blocks[i].m(article_1, text_39);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].u();
+						each_blocks[i].d();
+					}
+					each_blocks.length = attributes.length;
+				}
+
+				if (changed.selected && section_class_value !== (section_class_value = active$1(state.selected, 'info'))) {
+					section.className = section_class_value;
+				}
+
+				if (!input_7_updating) input_7.value = state.service.interval;
+				if (!input_8_updating) input_8.value = state.service.latencyLimit;
+				if (!input_9_updating) input_9.value = state.service.responseAlertThreshold;
+				if (!input_10_updating) input_10.value = state.service.errorAlterThreshold;
+				if (!input_11_updating) input_11.value = state.service.timeoutAfter;
+				if (changed.selected && section_1_class_value !== (section_1_class_value = active$1(state.selected, 'services'))) {
+					section_1.className = section_1_class_value;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(header);
+				detachNode(text_4);
+				detachNode(div_1);
+
+				for (var i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].u();
+				}
+			},
+
+			d: function destroy$$1() {
+				removeListener(li, "click", click_handler);
+				removeListener(li_1, "click", click_handler_1);
+				removeListener(input, "input", input_input_handler);
+				removeListener(input_1, "input", input_1_input_handler);
+				removeListener(input_2, "input", input_2_input_handler);
+				removeListener(input_3, "input", input_3_input_handler);
+
+				destroyEach(each_blocks);
+
+				removeListener(input_7, "input", input_7_input_handler);
+				removeListener(input_8, "input", input_8_input_handler);
+				removeListener(input_9, "input", input_9_input_handler);
+				removeListener(input_10, "input", input_10_input_handler);
+				removeListener(input_11, "input", input_11_input_handler);
+				removeListener(button, "click", click_handler_2);
+				removeListener(button_1, "click", click_handler_3);
+			}
+		};
+	}
+
+	// (56:16) {{#each attributes as attr}}
+	function create_each_block$1(state, attributes, attr, attr_index, component) {
+		var div,
+		    label,
+		    text_value = attr.key,
+		    text,
+		    text_1,
+		    input,
+		    input_value_value;
+
+		return {
+			c: function create() {
+				div = createElement("div");
+				label = createElement("label");
+				text = createText(text_value);
+				text_1 = createText("\n                    ");
+				input = createElement("input");
+				this.h();
+			},
+
+			h: function hydrate() {
+				label.htmlFor = "upadted";
+				input.value = input_value_value = attr.value;
+				input.type = "text";
+				div.className = "form-group";
+			},
+
+			m: function mount(target, anchor) {
+				insertNode(div, target, anchor);
+				appendNode(label, div);
+				appendNode(text, label);
+				appendNode(text_1, div);
+				appendNode(input, div);
+			},
+
+			p: function update(changed, state, attributes, attr, attr_index) {
+				if (changed.attributes && text_value !== (text_value = attr.key)) {
+					text.data = text_value;
+				}
+
+				if (changed.attributes && input_value_value !== (input_value_value = attr.value)) {
+					input.value = input_value_value;
+				}
+			},
+
+			u: function unmount() {
+				detachNode(div);
+			},
+
+			d: noop
+		};
+	}
+
+	function ApplicationEdit(options) {
+		init(this, options);
+		this.store = store_1$2();
+		this._state = assign(this.store._init(["application"]), data$7(), options.data);
+		this.store._add(this, ["application"]);
+
+		this._handlers.destroy = [removeFromStore];
+
+		if (!document.getElementById("svelte-3348269699-style")) add_css();
+
+		var _oncreate = oncreate$5.bind(this);
+
+		if (!options.root) {
+			this._oncreate = [];
+		}
+
+		this._fragment = create_main_fragment$7(this._state, this);
+
+		this.root._oncreate.push(_oncreate);
+
+		if (options.target) {
+			this._fragment.c();
+			this._fragment.m(options.target, options.anchor || null);
+
+			callAll(this._oncreate);
+		}
+	}
+
+	assign(ApplicationEdit.prototype, methods$7, proto);
+
+	var routes = {
+		'/': Home,
+		'/application/add': ApplicationAdd,
+		'/application/:appid/edit': ApplicationEdit,
+		'/application/:appid': ApplicationView
+	};
 
 	/**
   * Copyright 2014-2015, Facebook, Inc.
@@ -1075,7 +4654,16 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 	var createHistory = unwrapExports(createBrowserHistory_1);
 
+	// import createHistory from 'history/createHashHistory';
 	var history = createHistory();
+
+	/**
+  * Each `history` object has the following props:
+  * - history.length
+  * - history.location
+  * - history.action
+  * 
+  */
 
 	var compiledGrammar = createCommonjsModule(function (module, exports) {
 		/* parser generated by jison 0.4.17 */
@@ -1991,17 +5579,39 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 	var routeParser = route;
 
 	var createRouter = function createRouter(routes) {
-		var content = void 0;
-		var unlisten = void 0;
+		/** 
+   * DOM element to attach content/pages.
+   */
 		var target = void 0;
+		/** 
+   * Component instance, we save a 
+   * reference to created components
+   * when our route object is a function.
+   */
+		var content = void 0;
+		/** 
+   * history listener  
+   */
+		var unlisten = void 0;
 
 		var createRouteBehavior = function createRouteBehavior(route) {
+
+			/**
+    * Handle functins, in our case 
+    * those are usually svelte Components.
+    */
 			if (typeof route === 'function') {
+				var Component = route;
 				return function (input) {
-					return content = new route(input);
+					return content = new Component(input);
 				};
 			}
 
+			/**
+    * We support internal redirects as 
+    * object:
+    * '/route/redirect': {redirect: '/home'}
+    */
 			if ((typeof route === 'undefined' ? 'undefined' : _typeof2(route)) === 'object') {
 				if (route.redirect) {
 					return function () {
@@ -2010,6 +5620,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 				}
 			}
 
+			/**
+    * We support internal redirects as 
+    * strings:
+    * '/route/redirect': '/home'
+    */
 			if (typeof route === 'string') {
 				return function () {
 					return history.push(route);
@@ -2019,385 +5634,170 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 			return function () {};
 		};
 
-		var routeData = Object.keys(routes).map(function (key) {
-			return [key, routes[key]];
+		/** 
+   * Parse the routes object. Here we
+   * build our entries in route/behavior
+   * objects.
+   * 
+   * TODO: This should be configurable.
+   * We might want to have a diferent
+   * way to define routes, say we want 
+   * to be able to name routes so we 
+   * can then either trigger them by 
+   * name or reverse the route from 
+   * a name.
+  */
+		var routeData = Object.keys(routes).map(function (path) {
+			return [path, routes[path]];
 		}).map(function (_ref2) {
 			var _ref3 = _slicedToArray(_ref2, 2),
-			    key = _ref3[0],
+			    path = _ref3[0],
 			    value = _ref3[1];
 
 			return {
-				route: new routeParser(key),
+				route: new routeParser(path),
 				behavior: createRouteBehavior(value)
 			};
 		});
 
-		var handleRouteChange = function handleRouteChange(location) {
+		/**
+   * The `location` argument implements a subset
+   * of the `window.location` interface:
+   * - location.pathname
+   * - location.search
+   * - location.hash
+   * 
+   * Action might be one of:
+   * - POP
+   * - PUSH
+   * - REPLACE
+   * 
+   * @argument {Object} location
+   */
+		var handleRouteChange = function handleRouteChange(location, action) {
+			//We might want to do this in middleware?
+			// if(location.pathname === history.location.pathname) {
+			//     if(location.hash && content) {
+			//         return content.set({hash: location.hash});
+			//     }
+			// }
+
 			if (content && content.teardown) content.teardown();
 
 			for (var i = 0; i < routeData.length; i += 1) {
+				/** 
+     * data will be false when the route does not
+     * match location. In case is a match will return
+     * either an empty object or an object with 
+     * captured parameters.
+     */
 				var _data = routeData[i].route.match(location.pathname);
-				if (_data) {
-					routeData[i].behavior({ target: target, data: _data });
 
+				if (_data) {
+					/**
+      * data and target are relevant for
+      * Components. 
+      * - target: Component will render to it.
+      * - data: All captured parameters
+      * will be available to components on
+      * their data object.
+      */
+					routeData[i].behavior({
+						data: _data,
+						target: target
+					});
 					break;
 				}
 			}
 		};
 
 		return {
-			start: function start(location, targetElement) {
-				target = targetElement;
+			/**
+    * Initialize a new router.
+    * TODO: We should take an object with 
+    * different configuration options.
+    * One of the should be type of history
+    * We create history object here based on 
+    * browser or hash.
+    */
+			start: function start(location, renderElement) {
+
+				target = renderElement;
+
+				/**
+     * Listen for changes in URL and handle
+     * accordingly.
+     */
 				unlisten = history.listen(handleRouteChange);
+
 				handleRouteChange(location);
 			},
 			teardown: function teardown() {
-				if (unlisten) {
-					unlisten();
-					unlisten = undefined;
-				}
-			}
+				if (!unlisten) return;
+				unlisten();
+				unlisten = undefined;
+			},
+			go: _go,
+			goto: _goto,
+			replace: _replace,
+			goForward: _goForward,
+			goBack: _goBack,
+			listen: _listen
 		};
 	};
 
-	var extend = createCommonjsModule(function (module, exports) {
-		/*
-   * gextend
-   * https://github.com/goliatone/gextend
-   * Created with gbase.
-   * Copyright (c) 2014 goliatone
-   * Licensed under the MIT license.
-   */
-		/* jshint strict: false, plusplus: true */
-		/*global define: false, require: false, module: false, exports: false */
-		(function (root, name, deps, factory) {
-			if (typeof deps === 'function') {
-				factory = deps;
-				deps = [];
-			}
-
-			{
-				module.exports = factory.apply(root, deps.map(commonjsRequire));
-			}
-		})(commonjsGlobal, "extend", function () {
-			/**
-    * Extend method.
-    * @param  {Object} target Source object
-    * @return {Object}        Resulting object from
-    *                         extending target to params.
-    */
-			var _extend = function extend(target) {
-				var sources = [].slice.call(arguments, 1);
-
-				sources.forEach(function (source) {
-					if (!source) return;
-					for (var property in source) {
-						if (source[property] && source[property].constructor && source[property].constructor === Object) {
-							target[property] = target[property] || {};
-							target[property] = extend(target[property], source[property]);
-						} else target[property] = source[property];
-					}
-				});
-				return target;
-			};
-
-			_extend.VERSION = '0.3.1';
-
-			return _extend;
-		});
-	});
-
-	var gextend = extend;
-
-	var ServiceModel = function () {
-		function ServiceModel(data) {
-			_classCallCheck(this, ServiceModel);
-
-			if (data.vo) {
-				this.fromVO(data.vo);
-			}
-		}
-
-		_createClass(ServiceModel, [{
-			key: 'fromVO',
-			value: function fromVO(vo) {
-				console.log('VO', vo);
-				gextend(this, vo);
-			}
-		}]);
-
-		return ServiceModel;
-	}();
-
-	var ApplicationModel = function () {
-		function ApplicationModel(data) {
-			_classCallCheck(this, ApplicationModel);
-
-			if (data.vo) {
-				this.fromVO(data.vo);
-			}
-		}
-
-		_createClass(ApplicationModel, [{
-			key: 'fromVO',
-			value: function fromVO(vo) {
-				console.log('VO', vo);
-				gextend(this, vo);
-			}
-		}, {
-			key: 'sayHello',
-			value: function sayHello() {
-				return 'Hello ' + this.appId;
-			}
-		}, {
-			key: 'service',
-			set: function set(vo) {
-				this._service = new ServiceModel({ vo: vo });
-			},
-			get: function get() {
-				return this._service;
-			}
-		}]);
-
-		return ApplicationModel;
-	}();
-
-	var cache = {};
-	cache.applications = {};
-	cache.services = {};
-	cache.insights = {};
-
-	function createApplication(data) {
-		return fetch('/api/application', {
-			method: 'POST',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(data)
-		}).then(function (res) {
-			return res.json();
-		}).then(function (json) {
-			var vo = json.value;
-			cache.applications[json.value.id] = vo;
-			var model = new ApplicationModel({ vo: vo });
-			return json.value;
-		});
+	function _goto(path) {
+		history.push(path);
 	}
 
-	function updateApplication(id, data) {
-		return fetch('/api/application/' + id, {
-			method: 'PUT',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(data)
-		}).then(function (res) {
-			return res.json();
-		}).then(function (json) {
-			cache.applications[json.value.id] = json.value;
-			return json.value;
-		});
+	function _goBack() {
+		history.goBack();
 	}
 
-	function deleteApplication(id) {
-		if ((typeof id === 'undefined' ? 'undefined' : _typeof2(id)) === 'object') id = id.id;
-
-		return fetch('/api/application/' + id, {
-			method: 'DELETE',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			}
-		}).then(function (res) {
-			return res.json();
-		}).then(function (json) {
-			json = cache.applications[id];
-			delete cache.applications[id];
-			return json;
-		});
+	function _goForward() {
+		history.goForward();
 	}
 
-	function getApplication(id) {
-		return fetch('/api/application/' + id).then(function (res) {
-			return res.json();
-		}).then(function (json) {
-			var vo = json.value;
-			cache.applications[json.value.id] = vo;
-			var model = new ApplicationModel({ vo: vo });
-			return model;
-		});
+	function _replace(path) {
+		history.replace(path);
 	}
 
-	function getApplications() {
-		return fetch('/api/applications').then(function (res) {
-			return res.json();
-		}).then(function (json) {
-
-			json.value.map(function (app) {
-				console.log('id', app.id);
-				var model = new ApplicationModel({ vo: app });
-				cache.applications[app.id] = app;
-				return model;
-			});
-
-			return json;
-		});
+	function _go(n) {
+		history.go(n);
 	}
 
-	function getServices() {
-		return fetch('/api/services').then(function (res) {
-			return res.json();
-		}).then(function (json) {
-
-			json.value.map(function (service) {
-				cache.services[service.id] = service;
-			});
-
-			return json;
-		});
+	function _listen(fn) {
+		return history.listen(fn);
 	}
 
-	function getInsights() {
-		return fetch('/api/insights').then(function (res) {
-			return res.json();
-		});
-	}
+	/**
+  * Push a new entry onto the history stack. 
+  * @param {String} path URI
+  */
+	createRouter.goto = _goto;
 
-	function getInsightsFor(application) {
-		return getInsights().then(function (json) {
-			var value = json.value;
-			return value.find(function (insight) {
-				return insight.service.id = application;
-			});
-		});
-	}
+	/**
+  * Expose goBack to go back in the
+  * history stack. 
+  */
+	createRouter.goBack = _goBack;
 
-	function buildApplicationInsights() {
-		var services = getServices();
-		var applications = getApplications();
-		var insights = getInsights();
+	/**
+  * Expose goForward to go back in the
+  * history stack. 
+  */
+	createRouter.goForward = _goForward;
 
-		return new Promise(function (resolve, reject) {
-			Promise.all([services, applications, insights]).then(function (_ref4) {
-				var _ref5 = _slicedToArray(_ref4, 3),
-				    services = _ref5[0],
-				    applications = _ref5[1],
-				    insights = _ref5[2];
+	createRouter.replace = _replace;
 
-				services = services.value;
-				applications = applications.value;
-				insights = insights.value;
+	createRouter.go = _go;
 
-				services.map(function (service) {
-					applications.map(function (application) {
-						if (application.id === service.application) {
-							application.service = service;
+	createRouter.listen = _listen;
 
-							insights.map(function (insight) {
-								if (insight.service.id === service.id) {
-									application.insights = insight;
-								}
-							});
-						}
-					});
-				});
-
-				resolve(applications);
-			});
-		});
-	}
-
-	var api = {
-		cache: cache,
-		getInsights: getInsights,
-		getApplication: getApplication,
-		getApplications: getApplications,
-		getInsightsFor: getInsightsFor,
-		getServices: getServices,
-		createApplication: createApplication,
-		deleteApplication: deleteApplication,
-		updateApplication: updateApplication,
-		buildApplicationInsights: buildApplicationInsights
-	};
-
-	/* modules/server/app/components/Link.html generated by Svelte v1.54.2 */
-	function data() {
-		return {
-			text: '',
-			to: '/'
-		};
-	}
-
-	var methods = {
-		navigate: function navigate(evt, path) {
-			if (evt && evt.preventDefault) {
-				evt.preventDefault();
-			}
-			if (path) {
-				history.push(path);
-			}
-		}
-	};
-
-	function create_main_fragment(state, component) {
-		var a, text;
-
-		function click_handler(event) {
-			var state = component.get();
-			component.navigate(event, state.to);
-		}
-
-		return {
-			c: function create() {
-				a = createElement("a");
-				text = createText(state.text);
-				this.h();
-			},
-
-			h: function hydrate() {
-				a.href = "#";
-				addListener(a, "click", click_handler);
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(a, target, anchor);
-				appendNode(text, a);
-			},
-
-			p: function update(changed, state) {
-				if (changed.text) {
-					text.data = state.text;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(a);
-			},
-
-			d: function destroy$$1() {
-				removeListener(a, "click", click_handler);
-			}
-		};
-	}
-
-	function Link(options) {
-		init(this, options);
-		this._state = assign(data(), options.data);
-
-		this._fragment = create_main_fragment(this._state, this);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-		}
-	}
-
-	assign(Link.prototype, methods, proto);
+	var router = createRouter(routes);
 
 	/* modules/server/app/components/Footer.html generated by Svelte v1.54.2 */
-	function create_main_fragment$1(state, component) {
+	function create_main_fragment$8(state, component) {
 		var footer;
 
 		return {
@@ -2424,7 +5824,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 		init(this, options);
 		this._state = assign({}, options.data);
 
-		this._fragment = create_main_fragment$1(this._state, this);
+		this._fragment = create_main_fragment$8(this._state, this);
 
 		if (options.target) {
 			this._fragment.c();
@@ -2435,17 +5835,37 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 	assign(Footer.prototype, proto);
 
 	/* modules/server/app/components/Header.html generated by Svelte v1.54.2 */
-	function create_main_fragment$2(state, component) {
-		var header;
+	function create_main_fragment$9(state, component) {
+		var header, text, img, text_1;
+
+		var link = new Link({
+			root: component.root,
+			slots: { default: createFragment() },
+			data: { to: "/" }
+		});
 
 		return {
 			c: function create() {
 				header = createElement("header");
-				header.innerHTML = "<a href=\"/\"><img class=\"logo\" src=\"/img/logo.svg\" alt=\"OKKO\"></a>";
+				text = createText("\n        ");
+				img = createElement("img");
+				text_1 = createText("\n    ");
+				link._fragment.c();
+				this.h();
+			},
+
+			h: function hydrate() {
+				img.className = "logo";
+				img.src = "/img/logo.svg";
+				img.alt = "OKKO";
 			},
 
 			m: function mount(target, anchor) {
 				insertNode(header, target, anchor);
+				appendNode(text, link._slotted.default);
+				appendNode(img, link._slotted.default);
+				appendNode(text_1, link._slotted.default);
+				link._mount(header, null);
 			},
 
 			p: noop,
@@ -2454,7 +5874,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 				detachNode(header);
 			},
 
-			d: noop
+			d: function destroy$$1() {
+				link.destroy(false);
+			}
 		};
 	}
 
@@ -2462,3190 +5884,29 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 		init(this, options);
 		this._state = assign({}, options.data);
 
-		this._fragment = create_main_fragment$2(this._state, this);
+		if (!options.root) {
+			this._oncreate = [];
+			this._beforecreate = [];
+			this._aftercreate = [];
+		}
+
+		this._fragment = create_main_fragment$9(this._state, this);
 
 		if (options.target) {
 			this._fragment.c();
 			this._fragment.m(options.target, options.anchor || null);
+
+			this._lock = true;
+			callAll(this._beforecreate);
+			callAll(this._oncreate);
+			callAll(this._aftercreate);
+			this._lock = false;
 		}
 	}
 
 	assign(Header.prototype, proto);
 
-	function Store(state) {
-		this._observers = { pre: blankObject(), post: blankObject() };
-		this._changeHandlers = [];
-		this._dependents = [];
-
-		this._computed = blankObject();
-		this._sortedComputedProperties = [];
-
-		this._state = assign({}, state);
-	}
-
-	assign(Store.prototype, {
-		_add: function _add(component, props) {
-			this._dependents.push({
-				component: component,
-				props: props
-			});
-		},
-
-		_init: function _init(props) {
-			var state = {};
-			for (var i = 0; i < props.length; i += 1) {
-				var prop = props[i];
-				state['$' + prop] = this._state[prop];
-			}
-			return state;
-		},
-
-		_remove: function _remove(component) {
-			var i = this._dependents.length;
-			while (i--) {
-				if (this._dependents[i].component === component) {
-					this._dependents.splice(i, 1);
-					return;
-				}
-			}
-		},
-
-		_sortComputedProperties: function _sortComputedProperties() {
-			var computed = this._computed;
-			var sorted = this._sortedComputedProperties = [];
-			var cycles;
-			var visited = blankObject();
-
-			function visit(key) {
-				if (cycles[key]) {
-					throw new Error('Cyclical dependency detected');
-				}
-
-				if (visited[key]) return;
-				visited[key] = true;
-
-				var c = computed[key];
-
-				if (c) {
-					cycles[key] = true;
-					c.deps.forEach(visit);
-					sorted.push(c);
-				}
-			}
-
-			for (var key in this._computed) {
-				cycles = blankObject();
-				visit(key);
-			}
-		},
-
-		compute: function compute(key, deps, fn) {
-			var value;
-
-			var c = {
-				deps: deps,
-				update: function update(state, changed, dirty) {
-					var values = deps.map(function (dep) {
-						if (dep in changed) dirty = true;
-						return state[dep];
-					});
-
-					if (dirty) {
-						var newValue = fn.apply(null, values);
-						if (differs(newValue, value)) {
-							value = newValue;
-							changed[key] = true;
-							state[key] = value;
-						}
-					}
-				}
-			};
-
-			c.update(this._state, {}, true);
-
-			this._computed[key] = c;
-			this._sortComputedProperties();
-		},
-
-		get: get,
-
-		observe: observe,
-
-		onchange: function onchange(callback) {
-			this._changeHandlers.push(callback);
-			return {
-				cancel: function cancel() {
-					var index = this._changeHandlers.indexOf(callback);
-					if (~index) this._changeHandlers.splice(index, 1);
-				}
-			};
-		},
-
-		set: function set(newState) {
-			var oldState = this._state,
-			    changed = this._changed = {},
-			    dirty = false;
-
-			for (var key in newState) {
-				if (this._computed[key]) throw new Error("'" + key + "' is a read-only property");
-				if (differs(newState[key], oldState[key])) changed[key] = dirty = true;
-			}
-			if (!dirty) return;
-
-			this._state = assign({}, oldState, newState);
-
-			for (var i = 0; i < this._sortedComputedProperties.length; i += 1) {
-				this._sortedComputedProperties[i].update(this._state, changed);
-			}
-
-			for (var i = 0; i < this._changeHandlers.length; i += 1) {
-				this._changeHandlers[i](this._state, changed);
-			}
-
-			dispatchObservers(this, this._observers.pre, changed, this._state, oldState);
-
-			var dependents = this._dependents.slice(); // guard against mutations
-			for (var i = 0; i < dependents.length; i += 1) {
-				var dependent = dependents[i];
-				var componentState = {};
-				dirty = false;
-
-				for (var j = 0; j < dependent.props.length; j += 1) {
-					var prop = dependent.props[j];
-					if (prop in changed) {
-						componentState['$' + prop] = this._state[prop];
-						dirty = true;
-					}
-				}
-
-				if (dirty) dependent.component.set(componentState);
-			}
-
-			dispatchObservers(this, this._observers.post, changed, this._state, oldState);
-		}
-	});
-
-	var RootStore = function (_Store) {
-		_inherits(RootStore, _Store);
-
-		function RootStore() {
-			_classCallCheck(this, RootStore);
-
-			return _possibleConstructorReturn(this, (RootStore.__proto__ || Object.getPrototypeOf(RootStore)).apply(this, arguments));
-		}
-
-		_createClass(RootStore, [{
-			key: 'setApplications',
-			value: function setApplications(applications) {
-				this.set({ applications: applications });
-			}
-		}]);
-
-		return RootStore;
-	}(Store);
-
-	var _store = new RootStore({
-		online: 0,
-		offline: 0,
-		applications: [],
-		application: {}
-	});
-
-	var keypath = createCommonjsModule(function (module, exports) {
-		/*
-   * gkeypath
-   * https://github.com/goliatone/gkeypath
-   * Created with gbase.
-   * Copyright (c) 2014 goliatone
-   * Licensed under the MIT license.
-   */
-		/* jshint strict: false, plusplus: true */
-		/*global define: false, require: false, module: false, exports: false */
-		(function (root, name, deps, factory) {
-			if (typeof deps === 'function') {
-				factory = deps;
-				deps = [];
-			}
-
-			{
-				module.exports = factory.apply(root, deps.map(commonjsRequire));
-			}
-		})(commonjsGlobal, 'keypath', function () {
-
-			var Keypath = {};
-
-			Keypath.VERSION = '0.4.1';
-
-			Keypath.set = function (target, path, value) {
-				if (!target) return undefined;
-
-				var keys = path.split('.');
-				path = keys.pop();
-				keys.forEach(function (prop) {
-					if (!target[prop]) target[prop] = {};
-					target = target[prop];
-				});
-
-				Keypath._set(target, path, value); //target[path] = value;
-
-				return target;
-			};
-
-			Keypath.get = function (target, path, defaultValue) {
-				if (!target || !path) return false;
-
-				path = path.split('.');
-				var l = path.length,
-				    i = 0,
-				    p = '';
-				for (; i < l; ++i) {
-					p = path[i];
-					if (target[p] !== undefined) target = target[p];else return Keypath._get(defaultValue);
-				}
-				return Keypath._get(target);
-			};
-
-			Keypath.has = function (target, path) {
-				return this.get(target, path, '#$#NFV#$#') !== '#$#NFV#$#';
-			};
-
-			Keypath.assert = function (target, path, message) {
-				message = message || Keypath.DEFAULTS.assertionMessage;
-				var value = this.get(target, path, message);
-
-				if (value !== message) return value;
-
-				this.onError(message, path);
-
-				return undefined;
-			};
-			//TODO: we might want to reverse the order, and have a different
-			//signature. target, propName, inject
-			Keypath.wrap = function (target, inject, dataPropName) {
-				var wrapper = new Wrapper(target, dataPropName);
-
-				if (Proxy) {
-					wrapper = new Proxy(wrapper, {
-						get: function get(receiver, prop) {
-							if (typeof receiver[prop] === 'function') {
-								return function () {
-									for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-										args[_key2] = arguments[_key2];
-									}
-
-									return Reflect.apply(receiver[prop], receiver, args);
-								};
-							}
-							var out = receiver._target[prop];
-							if (out === undefined && receiver.hasOwnProperty(prop)) out = receiver[prop];
-							if (out === undefined && prop === dataPropName) out = receiver._target;
-							return out;
-						},
-						set: function set(receiver, prop, value) {
-							receiver._target[prop] = value;
-						}
-					});
-				}
-
-				if (!inject) return wrapper;
-
-				if (typeof inject === 'function') inject(target, wrapper);
-				if (typeof inject === 'string') Keypath.set(target, inject, wrapper);
-
-				return wrapper;
-			};
-
-			Keypath.onError = console.error.bind(console);
-
-			///////////////////////////////////////////////////
-			// PRIVATE METHODS
-			///////////////////////////////////////////////////
-			Keypath._get = function (value) {
-				return typeof value === 'function' ? value() : value;
-			};
-
-			Keypath._set = function (src, method, val) {
-				if (typeof src[method] === 'function') return src[method].call(src, val);
-				return src[method] = val;
-			};
-
-			///////////////////////////////////////////////////
-			// WRAPPER Internal Class
-			///////////////////////////////////////////////////
-			/**
-    * Wrapper Constructor
-    * @param {Object} target Object to be wrapped
-    */
-
-			function Wrapper(target, prop) {
-				prop = prop || 'target';
-				this[prop] = this._target = target;
-			}
-
-			Wrapper.prototype.set = function (path, value) {
-				return Keypath.set(this._target, path, value);
-			};
-
-			Wrapper.prototype.get = function (path, defaultValue) {
-				return Keypath.get(this._target, path, defaultValue);
-			};
-
-			Wrapper.prototype.has = function (path) {
-				return Keypath.has(this._target, path);
-			};
-
-			Keypath.Wrapper = Wrapper;
-
-			return Keypath;
-		});
-	});
-
-	var EVENT_TYPES = {
-		REQUEST_INSIGHTS: 'REQUEST_INSIGHTS',
-		REQUEST_SERVICES: 'REQUEST_SERVICES',
-		REQUEST_APPLICATION_ID: 'REQUEST_APPLICATION_ID',
-		REQUEST_APPLICATIONS: 'REQUEST_APPLICATIONS',
-		REQUEST_INSIGHT_ID: 'REQUEST_INSIGHT_ID',
-		/**
-   * Build all data to be displayed in home
-   * page.
-   */
-		REQUEST_COMPILE_DATA: 'REQUEST_COMPILE_DATA',
-
-		NAVIGATION_GOTO: 'NAVIGATION_GOTO',
-
-		APPLICATION_VIEW: 'APPLICATION_VIEW',
-
-		APPLICATION_NEW: 'APPLICATION_NEW',
-		APPLICATION_CREATE: 'APPLICATION_CREATE',
-
-		APPLICATION_EDIT: 'APPLICATION_EDIT',
-		APPLICATION_UPDATE: 'APPLICATION_UPDATE',
-
-		APPLICATION_DELETE: 'APPLICATION_DELETE',
-		APPLICATION_PAUSE: 'APPLICATION_PAUSE'
-	};
-
-	var _handlers = {};
-
-	var bus = {
-
-		EVENT_TYPES: EVENT_TYPES,
-
-		handle: function handle(eventName, handler) {
-
-			if (arguments.length === 1) {
-				handler = eventName.handler;
-				eventName = eventName.type;
-			}
-
-			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
-			handlers.push(handler);
-
-			return {
-				cancel: function cancel() {
-					var index = handlers.indexOf(handler);
-					if (~index) handlers.splice(index, 1);
-				}
-			};
-		},
-		dispatch: function dispatch(eventName) {
-			var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-
-			if ((typeof eventName === 'undefined' ? 'undefined' : _typeof2(eventName)) === 'object') {
-				data = eventName;
-				eventName = data.type;
-			} else if (!data.type) {
-				data.type = eventName;
-			}
-
-			var handlers = eventName in _handlers && _handlers[eventName].slice();
-
-			if (!handlers) {
-				return console.log('No handlers for %s', eventName);
-			}
-
-			for (var i = 0; i < handlers.length; i += 1) {
-				handlers[i].call(this, data);
-			}
-		},
-		cancel: function cancel(eventName, handler) {
-
-			if (arguments.length === 1) {
-				handler = eventName.handler;
-				eventName = eventName.type;
-			}
-
-			var handlers = _handlers[eventName] || (_handlers[eventName] = []);
-			var index = handlers.indexOf(handler);
-			if (~index) handlers.splice(index, 1);
-		}
-	};
-
-	/* modules/server/app/components/ApplicationListItem.html generated by Svelte v1.54.2 */
-	function status(online) {
-		return online ? 'online' : 'offline';
-	}
-
-	function data$1() {
-		return {
-			item: {
-				status: '',
-				appId: '',
-				last24Hours: 0,
-				lastWeek: 0,
-				downtime: 0,
-				outages: 0
-			}
-		};
-	}
-
-	function getStatus() {
-		var online = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'offline';
-
-		return online ? 'online' : 'offline';
-	}
-
-	function getKey(obj, path, def) {
-		return keypath.get(obj, path, def);
-	}
-
-	function formatDowntime(downtime) {
-		function pad(n, z) {
-			z = z || 2;
-			return ('00' + n).slice(-z);
-		}
-
-		var ms = downtime % 1000;
-		downtime = (downtime - ms) / 1000;
-		var secs = downtime % 60;
-		downtime = (downtime - secs) / 60;
-		var mins = downtime % 60;
-		var hrs = (downtime - mins) / 60;
-
-		return pad(hrs) + ':' + pad(mins) + ':' + pad(secs);
-	}
-
-	var methods$1 = {
-		action: function action(event, _action) {
-			if (event && event.preventDefault) {
-				event.preventDefault();
-			}
-			var appid = this.get('item').id;
-			console.log('action', _action);
-			switch (_action) {
-				case 'edit':
-					bus.goto('/application/' + appid + '/edit');
-					break;
-				case 'delete':
-					bus.deleteApplication(appid);
-					break;
-				case 'pause':
-					bus.pauseApplicationMonitoring(appid);
-					break;
-			}
-		}
-	};
-
-	function oncreate() {
-		var _this2 = this;
-
-		var btn = this.refs.btn;
-
-		var activeMenu = function activeMenu(e) {
-			_this2.set({ dropdown: e.target === btn ? 'active' : '' });
-		};
-
-		this.on('destroy', function () {
-			document.removeEventListener('click', activeMenu);
-		});
-
-		document.addEventListener('click', activeMenu);
-	}
-
-	function create_main_fragment$3(state, component) {
-		var tr,
-		    td,
-		    text_1,
-		    td_1,
-		    text_3,
-		    td_2,
-		    text_5,
-		    td_3,
-		    text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0),
-		    text_6,
-		    text_7,
-		    td_4,
-		    text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0),
-		    text_8,
-		    text_9,
-		    td_5,
-		    text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)),
-		    text_10,
-		    text_11,
-		    td_6,
-		    text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0),
-		    text_12,
-		    text_13,
-		    td_7,
-		    button,
-		    span_2,
-		    button_class_value,
-		    text_15,
-		    nav,
-		    ul,
-		    li,
-		    li_1,
-		    li_2,
-		    tr_data_status_value;
-
-		var link = new Link({
-			root: component.root,
-			data: {
-				to: "/application/" + state.item.id,
-				text: state.item.appId
-			}
-		});
-
-		function click_handler(event) {
-			component.action(event, 'delete');
-		}
-
-		function click_handler_1(event) {
-			component.action(event, 'edit');
-		}
-
-		function click_handler_2(event) {
-			component.action(event, 'pause');
-		}
-
-		return {
-			c: function create() {
-				tr = createElement("tr");
-				td = createElement("td");
-				td.innerHTML = "<span class=\"icon-status\"></span>";
-				text_1 = createText("\n    ");
-				td_1 = createElement("td");
-				link._fragment.c();
-				text_3 = createText("\n\n    ");
-				td_2 = createElement("td");
-				td_2.innerHTML = "<span class=\"tag tag-status tag-big\"></span>";
-				text_5 = createText("\n\n    ");
-				td_3 = createElement("td");
-				text_6 = createText(text_6_value);
-				text_7 = createText("\n    ");
-				td_4 = createElement("td");
-				text_8 = createText(text_8_value);
-				text_9 = createText("\n    ");
-				td_5 = createElement("td");
-				text_10 = createText(text_10_value);
-				text_11 = createText("\n    ");
-				td_6 = createElement("td");
-				text_12 = createText(text_12_value);
-				text_13 = createText("\n\n    ");
-				td_7 = createElement("td");
-				button = createElement("button");
-				span_2 = createElement("span");
-				text_15 = createText("\n        ");
-				nav = createElement("nav");
-				ul = createElement("ul");
-				li = createElement("li");
-				li.innerHTML = "<a href=\"#\"><span class=\"icon-delete\"></span>Delete</a>";
-				li_1 = createElement("li");
-				li_1.innerHTML = "<a href=\"#\"><span class=\"icon-edit\"></span>Edit</a>";
-				li_2 = createElement("li");
-				li_2.innerHTML = "<a href=\"#\"><span class=\"icon-pause\"></span>Pause Monitor</a>";
-				this.h();
-			},
-
-			h: function hydrate() {
-				td.className = "td-tight";
-				td_3.className = "percentage";
-				td_4.className = "percentage";
-				span_2.className = "icon-more";
-				button.className = button_class_value = "btn btn-icon dropdown-toggle " + state.dropdown;
-				setAttribute(button, "role", "button");
-				li.className = "container-icon";
-				addListener(li, "click", click_handler);
-				li_1.className = "container-icon";
-				addListener(li_1, "click", click_handler_1);
-				li_2.className = "container-icon";
-				addListener(li_2, "click", click_handler_2);
-				nav.className = "dropdown-menu dm-overlay dm-white";
-				td_7.className = "dropdown-container td-center";
-				tr.dataset.status = tr_data_status_value = getStatus(state.item.online);
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(tr, target, anchor);
-				appendNode(td, tr);
-				appendNode(text_1, tr);
-				appendNode(td_1, tr);
-				link._mount(td_1, null);
-				appendNode(text_3, tr);
-				appendNode(td_2, tr);
-				appendNode(text_5, tr);
-				appendNode(td_3, tr);
-				appendNode(text_6, td_3);
-				appendNode(text_7, tr);
-				appendNode(td_4, tr);
-				appendNode(text_8, td_4);
-				appendNode(text_9, tr);
-				appendNode(td_5, tr);
-				appendNode(text_10, td_5);
-				appendNode(text_11, tr);
-				appendNode(td_6, tr);
-				appendNode(text_12, td_6);
-				appendNode(text_13, tr);
-				appendNode(td_7, tr);
-				appendNode(button, td_7);
-				appendNode(span_2, button);
-				component.refs.btn = span_2;
-				appendNode(text_15, td_7);
-				appendNode(nav, td_7);
-				appendNode(ul, nav);
-				appendNode(li, ul);
-				appendNode(li_1, ul);
-				appendNode(li_2, ul);
-			},
-
-			p: function update(changed, state) {
-				var link_changes = {};
-				if (changed.item) link_changes.to = "/application/" + state.item.id;
-				if (changed.item) link_changes.text = state.item.appId;
-				link._set(link_changes);
-
-				if (changed.item && text_6_value !== (text_6_value = getKey(state.item, 'insights.status.last24Hours.uptime', 0))) {
-					text_6.data = text_6_value;
-				}
-
-				if (changed.item && text_8_value !== (text_8_value = getKey(state.item, 'insights.status.lastWeek.uptime', 0))) {
-					text_8.data = text_8_value;
-				}
-
-				if (changed.item && text_10_value !== (text_10_value = formatDowntime(getKey(state.item, 'insights.status.lastWeek.downtime', 0)))) {
-					text_10.data = text_10_value;
-				}
-
-				if (changed.item && text_12_value !== (text_12_value = getKey(state.item, 'insights.status.lastWeek.numberOutages', 0))) {
-					text_12.data = text_12_value;
-				}
-
-				if (changed.dropdown && button_class_value !== (button_class_value = "btn btn-icon dropdown-toggle " + state.dropdown)) {
-					button.className = button_class_value;
-				}
-
-				if (changed.item && tr_data_status_value !== (tr_data_status_value = getStatus(state.item.online))) {
-					tr.dataset.status = tr_data_status_value;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(tr);
-			},
-
-			d: function destroy$$1() {
-				link.destroy(false);
-				if (component.refs.btn === span_2) component.refs.btn = null;
-				removeListener(li, "click", click_handler);
-				removeListener(li_1, "click", click_handler_1);
-				removeListener(li_2, "click", click_handler_2);
-			}
-		};
-	}
-
-	function ApplicationListItem(options) {
-		init(this, options);
-		this.refs = {};
-		this._state = assign(data$1(), options.data);
-		this._recompute({ online: 1 }, this._state);
-
-		var _oncreate = oncreate.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-			this._beforecreate = [];
-			this._aftercreate = [];
-		}
-
-		this._fragment = create_main_fragment$3(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			this._lock = true;
-			callAll(this._beforecreate);
-			callAll(this._oncreate);
-			callAll(this._aftercreate);
-			this._lock = false;
-		}
-	}
-
-	assign(ApplicationListItem.prototype, methods$1, proto);
-
-	ApplicationListItem.prototype._recompute = function _recompute(changed, state) {
-		if (changed.online) {
-			if (differs(state.status, state.status = status(state.online))) changed.status = true;
-		}
-	};
-
-	/* modules/server/app/components/Button.html generated by Svelte v1.54.2 */
-	function data$2() {
-		return {
-			text: '',
-			to: '/'
-		};
-	}
-
-	function icon(type) {
-		switch (type) {
-			case 'add':
-				return 'icon-plus';
-				break;
-			case 'edit':
-				return 'icon-edit-white';
-				break;
-		}
-	}
-
-	var methods$2 = {
-		navigate: function navigate(evt, path) {
-			if (evt && evt.preventDefault) {
-				evt.preventDefault();
-			}
-			if (path) {
-				history.push(path);
-			}
-		}
-	};
-
-	function create_main_fragment$4(state, component) {
-		var button, span, span_class_value, text, span_1, text_1;
-
-		function click_handler(event) {
-			var state = component.get();
-			component.navigate(event, state.to);
-		}
-
-		return {
-			c: function create() {
-				button = createElement("button");
-				span = createElement("span");
-				text = createText("\n    ");
-				span_1 = createElement("span");
-				text_1 = createText(state.text);
-				this.h();
-			},
-
-			h: function hydrate() {
-				span.className = span_class_value = icon(state.type);
-				setAttribute(span, "aria-hidden", "true");
-				button.className = "btn btn-info";
-				setAttribute(button, "role", "button");
-				addListener(button, "click", click_handler);
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(button, target, anchor);
-				appendNode(span, button);
-				appendNode(text, button);
-				appendNode(span_1, button);
-				appendNode(text_1, span_1);
-			},
-
-			p: function update(changed, state) {
-				if (changed.type && span_class_value !== (span_class_value = icon(state.type))) {
-					span.className = span_class_value;
-				}
-
-				if (changed.text) {
-					text_1.data = state.text;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(button);
-			},
-
-			d: function destroy$$1() {
-				removeListener(button, "click", click_handler);
-			}
-		};
-	}
-
-	function Button(options) {
-		init(this, options);
-		this._state = assign(data$2(), options.data);
-
-		this._fragment = create_main_fragment$4(this._state, this);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-		}
-	}
-
-	assign(Button.prototype, methods$2, proto);
-
-	/* modules/server/app/pages/Home.html generated by Svelte v1.54.2 */
-	function data$3() {
-		return {
-			online: 0,
-			offline: 0,
-			applications: []
-		};
-	}
-
-	var methods$3 = {
-		addApplication: function addApplication() {
-			console.log('message');
-		}
-	};
-
-	function oncreate$1() {
-		bus.requestCompiledData();
-		window.page = this;
-	}
-
-	function store_1() {
-		return _store;
-	}
-
-	function create_main_fragment$5(state, component) {
-		var header, h1, text_1, text_3, div, ul, li, li_1, a_1, text_6, text_7, text_8, li_2, a_2, text_10, text_11, text_12, text_14, table, thead, text_30, tbody, await_block_1, await_block_type, await_token, promise, resolved;
-
-		var button = new Button({
-			root: component.root,
-			data: {
-				to: "/application/add",
-				text: "Add Application",
-				type: "add"
-			}
-		});
-
-		function replace_await_block(token, type, value, state) {
-			if (token !== await_token) return;
-
-			var old_block = await_block_1;
-			await_block_1 = (await_block_type = type)(state, resolved = value, component);
-
-			if (old_block) {
-				old_block.u();
-				old_block.d();
-				await_block_1.c();
-				await_block_1.m(tbody, null);
-
-				component.root.set({});
-			}
-		}
-
-		function handle_promise(promise, state) {
-			var token = await_token = {};
-
-			if (isPromise(promise)) {
-				promise.then(function (value) {
-					var state = component.get();
-					replace_await_block(token, create_then_block, value, state);
-				}, function (error_1) {
-					var state = component.get();
-					replace_await_block(token, create_catch_block, error_1, state);
-				});
-
-				// if we previously had a then/catch block, destroy it
-				if (await_block_type !== create_pending_block) {
-					replace_await_block(token, create_pending_block, null, state);
-					return true;
-				}
-			} else {
-				resolved = promise;
-				if (await_block_type !== create_then_block) {
-					replace_await_block(token, create_then_block, resolved, state);
-					return true;
-				}
-			}
-		}
-
-		handle_promise(promise = state.$applications, state);
-
-		return {
-			c: function create() {
-				header = createElement("header");
-				h1 = createElement("h1");
-				h1.textContent = "Applications";
-				text_1 = createText("\n    ");
-				button._fragment.c();
-				text_3 = createText("\n\n");
-				div = createElement("div");
-				ul = createElement("ul");
-				li = createElement("li");
-				li.innerHTML = "<a href=\"#applications-all\" title=\"All\">All</a>";
-				li_1 = createElement("li");
-				a_1 = createElement("a");
-				text_6 = createText("Online(");
-				text_7 = createText(state.$online);
-				text_8 = createText(")");
-				li_2 = createElement("li");
-				a_2 = createElement("a");
-				text_10 = createText("Offline(");
-				text_11 = createText(state.$offline);
-				text_12 = createText(")");
-				text_14 = createText("\n\n    ");
-				table = createElement("table");
-				thead = createElement("thead");
-				thead.innerHTML = "<tr><th></th>\n                <th></th>\n                <th>Status</th>\n                <th>Last 24 hours</th>\n                <th>Last Week</th>\n                <th>Downtime</th>\n                <th class=\"text-center\">Outages</th>\n                <th class=\"text-center\">Actions</th></tr>";
-				text_30 = createText("\n        ");
-				tbody = createElement("tbody");
-
-				await_block_1.c();
-				this.h();
-			},
-
-			h: function hydrate() {
-				h1.className = "title";
-				header.className = "row";
-				li.className = "active";
-				a_1.href = "#application-online";
-				a_1.title = "Online(4)";
-				a_2.href = "#application-offline";
-				a_2.title = "Offline(1)";
-				ul.className = "tab-menu";
-				table.className = "table-rows-white";
-				div.className = "layout-w";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(header, target, anchor);
-				appendNode(h1, header);
-				appendNode(text_1, header);
-				button._mount(header, null);
-				insertNode(text_3, target, anchor);
-				insertNode(div, target, anchor);
-				appendNode(ul, div);
-				appendNode(li, ul);
-				appendNode(li_1, ul);
-				appendNode(a_1, li_1);
-				appendNode(text_6, a_1);
-				appendNode(text_7, a_1);
-				appendNode(text_8, a_1);
-				appendNode(li_2, ul);
-				appendNode(a_2, li_2);
-				appendNode(text_10, a_2);
-				appendNode(text_11, a_2);
-				appendNode(text_12, a_2);
-				appendNode(text_14, div);
-				appendNode(table, div);
-				appendNode(thead, table);
-				appendNode(text_30, table);
-				appendNode(tbody, table);
-
-				await_block_1.m(tbody, null);
-			},
-
-			p: function update(changed, state) {
-				if (changed.$online) {
-					text_7.data = state.$online;
-				}
-
-				if (changed.$offline) {
-					text_11.data = state.$offline;
-				}
-
-				if ('$applications' in changed && promise !== (promise = state.$applications) && handle_promise(promise, state)) {
-					// nothing
-				} else {
-					await_block_1.p(changed, state, resolved);
-				}
-			},
-
-			u: function unmount() {
-				detachNode(header);
-				detachNode(text_3);
-				detachNode(div);
-
-				await_block_1.u();
-			},
-
-			d: function destroy$$1() {
-				button.destroy(false);
-
-				await_token = null;
-				await_block_1.d();
-			}
-		};
-	}
-
-	// (33:36)              <p>We are loading results...</p>             {{then response}}
-	function create_pending_block(state, _, component) {
-		var p;
-
-		return {
-			c: function create() {
-				p = createElement("p");
-				p.textContent = "We are loading results...";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(p, target, anchor);
-			},
-
-			p: noop,
-
-			u: function unmount() {
-				detachNode(p);
-			},
-
-			d: noop
-		};
-	}
-
-	// (37:16) {{#each response as value}}
-	function create_each_block(state, response, response_1, value, value_index, component) {
-
-		var item = new ApplicationListItem({
-			root: component.root,
-			data: { item: value }
-		});
-
-		return {
-			c: function create() {
-				item._fragment.c();
-			},
-
-			m: function mount(target, anchor) {
-				item._mount(target, anchor);
-			},
-
-			p: function update(changed, state, response, response_1, value, value_index) {
-				var item_changes = {};
-				if (changed.$applications) item_changes.item = value;
-				item._set(item_changes);
-			},
-
-			u: function unmount() {
-				item._unmount();
-			},
-
-			d: function destroy$$1() {
-				item.destroy(false);
-			}
-		};
-	}
-
-	// (36:16) {{#if response}}
-	function create_if_block(state, response, component) {
-		var each_anchor;
-
-		var response_1 = response;
-
-		var each_blocks = [];
-
-		for (var i = 0; i < response_1.length; i += 1) {
-			each_blocks[i] = create_each_block(state, response, response_1, response_1[i], i, component);
-		}
-
-		return {
-			c: function create() {
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].c();
-				}
-
-				each_anchor = createComment();
-			},
-
-			m: function mount(target, anchor) {
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].m(target, anchor);
-				}
-
-				insertNode(each_anchor, target, anchor);
-			},
-
-			p: function update(changed, state, response) {
-				var response_1 = response;
-
-				if (changed.$applications) {
-					for (var i = 0; i < response_1.length; i += 1) {
-						if (each_blocks[i]) {
-							each_blocks[i].p(changed, state, response, response_1, response_1[i], i);
-						} else {
-							each_blocks[i] = create_each_block(state, response, response_1, response_1[i], i, component);
-							each_blocks[i].c();
-							each_blocks[i].m(each_anchor.parentNode, each_anchor);
-						}
-					}
-
-					for (; i < each_blocks.length; i += 1) {
-						each_blocks[i].u();
-						each_blocks[i].d();
-					}
-					each_blocks.length = response_1.length;
-				}
-			},
-
-			u: function unmount() {
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].u();
-				}
-
-				detachNode(each_anchor);
-			},
-
-			d: function destroy$$1() {
-				destroyEach(each_blocks);
-			}
-		};
-	}
-
-	// (35:12) {{then response}}
-	function create_then_block(state, response, component) {
-		var if_block_anchor;
-
-		var if_block = response && create_if_block(state, response, component);
-
-		return {
-			c: function create() {
-				if (if_block) if_block.c();
-				if_block_anchor = createComment();
-			},
-
-			m: function mount(target, anchor) {
-				if (if_block) if_block.m(target, anchor);
-				insertNode(if_block_anchor, target, anchor);
-			},
-
-			p: function update(changed, state, response) {
-				if (response) {
-					if (if_block) {
-						if_block.p(changed, state, response);
-					} else {
-						if_block = create_if_block(state, response, component);
-						if_block.c();
-						if_block.m(if_block_anchor.parentNode, if_block_anchor);
-					}
-				} else if (if_block) {
-					if_block.u();
-					if_block.d();
-					if_block = null;
-				}
-			},
-
-			u: function unmount() {
-				if (if_block) if_block.u();
-				detachNode(if_block_anchor);
-			},
-
-			d: function destroy$$1() {
-				if (if_block) if_block.d();
-			}
-		};
-	}
-
-	// (41:12) {{catch error}}
-	function create_catch_block(state, error, component) {
-		var p;
-
-		return {
-			c: function create() {
-				p = createElement("p");
-				p.textContent = "Well that's odd... An error occurred during processing your request.";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(p, target, anchor);
-			},
-
-			p: noop,
-
-			u: function unmount() {
-				detachNode(p);
-			},
-
-			d: noop
-		};
-	}
-
-	function Home(options) {
-		init(this, options);
-		this.store = store_1();
-		this._state = assign(this.store._init(["online", "offline", "applications"]), data$3(), options.data);
-		this.store._add(this, ["online", "offline", "applications"]);
-
-		this._handlers.destroy = [removeFromStore];
-
-		var _oncreate = oncreate$1.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-			this._beforecreate = [];
-			this._aftercreate = [];
-		}
-
-		this._fragment = create_main_fragment$5(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			this._lock = true;
-			callAll(this._beforecreate);
-			callAll(this._oncreate);
-			callAll(this._aftercreate);
-			this._lock = false;
-		}
-	}
-
-	assign(Home.prototype, methods$3, proto);
-
-	/* modules/server/app/components/ProbeChart.html generated by Svelte v1.54.2 */
-	function data$4() {
-		return {
-			probes: 0,
-			mean: 0,
-			min: 0,
-			max: 0,
-			errors: 0
-		};
-	}
-
-	function oncreate$2() {
-		var BAR_BG = '#8199ab';
-		var HIGHLIGHT_BG = '#ff206a';
-
-		var hour = ['hour', 47, 89, 47, 66, 47, 141, 66, 47, 122, 100, 141, 89, 173, 122, 100, 196, 66, 66, 47, 113, 66, 89, 66, 205, 100, 122, 66, 66, 47, 66, 100, 205, 66, 141, 89, 152, 47, 66, 152, 141, 47, 66, 89, 100, 205, 89, 47, 100, 66, 113, 66, 47, 100, 89, 113, 47, 66, 100, 47, 113, 100, 89, 47, 66, 47, 89, 66, 89, 100];
-		return;
-		var chart = bb.generate({
-			data: {
-				columns: [hour],
-				type: 'bar',
-				// set bars fill color
-				colors: { data: BAR_BG },
-				// set fill color for max values in chart
-				onmax: function onmax(data) {
-					data.forEach(function (v) {
-						var max_el = d3.select("#js-chart-probe-latency .bb-shapes-" + v.id + " .bb-bar-" + v.index);
-						max_el.style('fill', HIGHLIGHT_BG);
-					});
-				}
-			},
-			axis: {
-				// hide axis
-				x: {
-					show: false
-				},
-				y: {
-					show: false,
-					// set y axis range
-					min: 0,
-					max: 165
-					// padding: 0
-				}
-			},
-			grid: {
-				y: {
-					show: true,
-					lines: true
-				},
-				lines: { front: true }
-			},
-			legend: { show: false }, // hide legend
-			bar: {
-				width: { ratio: 0.35 }
-			},
-			bindto: '#js-chart-probe-latency'
-		});
-
-		window.chart = chart;
-	}
-
-	function create_main_fragment$6(state, component) {
-		var link, text, article, div, p, text_1, text_2, div_1, text_3, div_2, ul, li, p_1, text_5, p_2, text_6, li_1, p_3, text_9, p_4, text_10, li_2, p_5, text_13, p_6, text_14, li_3, p_7, text_17, p_8, text_18, li_4, p_9, text_21, p_10, text_22, text_24, div_3;
-
-		return {
-			c: function create() {
-				link = createElement("link");
-				text = createText("\n\n");
-				article = createElement("article");
-				div = createElement("div");
-				p = createElement("p");
-				text_1 = createText(state.title);
-				text_2 = createText("\n          ");
-				div_1 = createElement("div");
-				text_3 = createText("\n\n          ");
-				div_2 = createElement("div");
-				ul = createElement("ul");
-				li = createElement("li");
-				p_1 = createElement("p");
-				p_1.textContent = "Probes";
-				text_5 = createText("\n                ");
-				p_2 = createElement("p");
-				text_6 = createText(state.probes);
-				li_1 = createElement("li");
-				p_3 = createElement("p");
-				p_3.textContent = "Mean";
-				text_9 = createText("\n                ");
-				p_4 = createElement("p");
-				text_10 = createText(state.mean);
-				li_2 = createElement("li");
-				p_5 = createElement("p");
-				p_5.textContent = "Min";
-				text_13 = createText("\n                ");
-				p_6 = createElement("p");
-				text_14 = createText(state.min);
-				li_3 = createElement("li");
-				p_7 = createElement("p");
-				p_7.textContent = "Max";
-				text_17 = createText("\n                ");
-				p_8 = createElement("p");
-				text_18 = createText(state.max);
-				li_4 = createElement("li");
-				p_9 = createElement("p");
-				p_9.textContent = "Errors";
-				text_21 = createText("\n                ");
-				p_10 = createElement("p");
-				text_22 = createText(state.errors);
-				text_24 = createText("\n\n            ");
-				div_3 = createElement("div");
-				div_3.innerHTML = "<div id=\"js-probe-latency-select\" class=\"dropdown-container\"><button class=\"btn btn-sm btn-primary btn-split dropdown-toggle btn-select\" role=\"button\"><span class=\"js-selection\">Hour</span>\n                  <span class=\"icon-arrow-down\"></span></button>\n                <menu class=\"dropdown-menu dm-aligned dm-primary\"><ul><li data-frequency=\"hour\" class=\"js-hidden\">Hour</li>\n                    <li data-frequency=\"day\">Day</li>\n                    <li data-frequency=\"week\">Week</li>\n                    <li data-frequency=\"month\">Month</li>\n                  </ul></menu></div>";
-				this.h();
-			},
-
-			h: function hydrate() {
-				link.rel = "stylesheet";
-				link.href = "/css/billboard.min.css";
-				p.className = "chart-bars-2__title";
-				div_1.id = "js-chart-probe-latency";
-				div_1.className = "chart-bars-2__chart";
-				p_1.className = "chart-bars-2__details-title";
-				p_2.className = "chart-bars-2__details-value";
-				li.className = "chart-bars-2__detail";
-				p_3.className = "chart-bars-2__details-title";
-				p_4.className = "chart-bars-2__details-value";
-				li_1.className = "chart-bars-2__detail";
-				p_5.className = "chart-bars-2__details-title";
-				p_6.className = "chart-bars-2__details-value";
-				li_2.className = "chart-bars-2__detail";
-				p_7.className = "chart-bars-2__details-title";
-				p_8.className = "chart-bars-2__details-value";
-				li_3.className = "chart-bars-2__detail";
-				p_9.className = "chart-bars-2__details-title";
-				p_10.className = "chart-bars-2__details-value";
-				li_4.className = "chart-bars-2__detail";
-				ul.className = "row";
-				div_3.className = "chart-bars-2__select";
-				div_2.className = "chart-bars-2__info row";
-				div.className = "chart-bars-2";
-				article.className = "panel-blue panel-3";
-			},
-
-			m: function mount(target, anchor) {
-				appendNode(link, document.head);
-				insertNode(text, target, anchor);
-				insertNode(article, target, anchor);
-				appendNode(div, article);
-				appendNode(p, div);
-				appendNode(text_1, p);
-				appendNode(text_2, div);
-				appendNode(div_1, div);
-				appendNode(text_3, div);
-				appendNode(div_2, div);
-				appendNode(ul, div_2);
-				appendNode(li, ul);
-				appendNode(p_1, li);
-				appendNode(text_5, li);
-				appendNode(p_2, li);
-				appendNode(text_6, p_2);
-				appendNode(li_1, ul);
-				appendNode(p_3, li_1);
-				appendNode(text_9, li_1);
-				appendNode(p_4, li_1);
-				appendNode(text_10, p_4);
-				appendNode(li_2, ul);
-				appendNode(p_5, li_2);
-				appendNode(text_13, li_2);
-				appendNode(p_6, li_2);
-				appendNode(text_14, p_6);
-				appendNode(li_3, ul);
-				appendNode(p_7, li_3);
-				appendNode(text_17, li_3);
-				appendNode(p_8, li_3);
-				appendNode(text_18, p_8);
-				appendNode(li_4, ul);
-				appendNode(p_9, li_4);
-				appendNode(text_21, li_4);
-				appendNode(p_10, li_4);
-				appendNode(text_22, p_10);
-				appendNode(text_24, div_2);
-				appendNode(div_3, div_2);
-			},
-
-			p: function update(changed, state) {
-				if (changed.title) {
-					text_1.data = state.title;
-				}
-
-				if (changed.probes) {
-					text_6.data = state.probes;
-				}
-
-				if (changed.mean) {
-					text_10.data = state.mean;
-				}
-
-				if (changed.min) {
-					text_14.data = state.min;
-				}
-
-				if (changed.max) {
-					text_18.data = state.max;
-				}
-
-				if (changed.errors) {
-					text_22.data = state.errors;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(link);
-				detachNode(text);
-				detachNode(article);
-			},
-
-			d: noop
-		};
-	}
-
-	function ProbeChart(options) {
-		init(this, options);
-		this._state = assign(data$4(), options.data);
-
-		var _oncreate = oncreate$2.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-		}
-
-		this._fragment = create_main_fragment$6(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			callAll(this._oncreate);
-		}
-	}
-
-	assign(ProbeChart.prototype, proto);
-
-	/* modules/server/app/pages/ApplicationView.html generated by Svelte v1.54.2 */
-	function data$5() {
-		return {
-			selected: 'info',
-			app: {}
-		};
-	}
-
-	function getStatus$1(online) {
-		return online ? 'online' : 'offline';
-	}
-
-	function active(selected, val) {
-		var type = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'visible';
-
-		if (type === 'visible') {
-			return selected === val ? 'visible' : 'hidden';
-		}
-		if (type === 'active') {
-			return selected === val ? 'active' : 'inactive';
-		}
-	}
-
-	var methods$4 = {
-		select: function select(section) {
-			this.set({ selected: section });
-		}
-	};
-
-	function oncreate$3() {
-		/**
-   * TODO: We should do this in our navigation
-   * step, so when it gets here is already 
-   * loaded(?)
-   */
-		var appid = this.get('appid');
-		bus.requestApplicationById(appid);
-
-		// this.store.observe('application', (app)=>{
-		//     if(!app) return console.log('boooooo');
-		//     if(app instanceof Promise) return;
-		//     console.log(app.sayHello());
-		// });
-
-		window.page = this;
-	}
-
-	function store_1$1() {
-		return _store;
-	}
-
-	function create_main_fragment$7(state, component) {
-		var header,
-		    div,
-		    h1,
-		    text_value = state.$application.identifier,
-		    text,
-		    text_1,
-		    span,
-		    div_data_status_value,
-		    text_3,
-		    text_5,
-		    text_6,
-		    div_1,
-		    ul,
-		    li,
-		    li_class_value,
-		    li_1,
-		    li_1_class_value,
-		    text_11,
-		    section,
-		    h2,
-		    text_13,
-		    div_2,
-		    article,
-		    table,
-		    tbody,
-		    tr,
-		    td,
-		    text_15,
-		    td_1,
-		    text_16_value = state.$application.appId,
-		    text_16,
-		    text_18,
-		    tr_1,
-		    td_2,
-		    text_20,
-		    td_3,
-		    text_21_value = state.$application.hostname,
-		    text_21,
-		    text_23,
-		    tr_2,
-		    td_4,
-		    text_25,
-		    td_5,
-		    text_26_value = state.$application.identifier,
-		    text_26,
-		    text_28,
-		    tr_3,
-		    td_6,
-		    text_30,
-		    td_7,
-		    text_31_value = state.$application.environment,
-		    text_31,
-		    text_33,
-		    tr_4,
-		    td_8,
-		    text_35,
-		    td_9,
-		    text_36_value = state.$application.createdAt,
-		    text_36,
-		    text_38,
-		    tr_5,
-		    td_10,
-		    text_40,
-		    td_11,
-		    text_41_value = state.$application.updatedAt,
-		    text_41,
-		    text_45,
-		    h3,
-		    text_47,
-		    hr,
-		    text_48,
-		    table_1,
-		    tbody_1,
-		    tr_6,
-		    text_51,
-		    tr_7,
-		    td_13,
-		    text_53,
-		    td_14,
-		    text_54_value = state.$application.appId,
-		    text_54,
-		    text_56,
-		    tr_8,
-		    text_59,
-		    tr_9,
-		    text_64,
-		    tr_10,
-		    text_67,
-		    tr_11,
-		    text_75,
-		    div_3,
-		    section_class_value;
-
-		var button = new Button({
-			root: component.root,
-			data: {
-				to: "/application/" + state.appid + "/edit",
-				text: "Edit Application",
-				type: "edit"
-			}
-		});
-
-		var chart = new ProbeChart({
-			root: component.root,
-			data: { title: "Probe Latency" }
-		});
-
-		function click_handler(event) {
-			component.select('info');
-		}
-
-		function click_handler_1(event) {
-			component.select('services');
-		}
-
-		return {
-			c: function create() {
-				header = createElement("header");
-				div = createElement("div");
-				h1 = createElement("h1");
-				text = createText(text_value);
-				text_1 = createText("\n        ");
-				span = createElement("span");
-				text_3 = createText("\n    ");
-				button._fragment.c();
-				text_5 = createText("\n\n\n");
-				chart._fragment.c();
-				text_6 = createText("\n\n");
-				div_1 = createElement("div");
-				ul = createElement("ul");
-				li = createElement("li");
-				li.innerHTML = "<a title=\"Info\">Info</a>";
-				li_1 = createElement("li");
-				li_1.innerHTML = "<a title=\"Services\">Services</a>";
-				text_11 = createText("\n\n    ");
-				section = createElement("section");
-				h2 = createElement("h2");
-				h2.textContent = "Information";
-				text_13 = createText("\n        ");
-				div_2 = createElement("div");
-				article = createElement("article");
-				table = createElement("table");
-				tbody = createElement("tbody");
-				tr = createElement("tr");
-				td = createElement("td");
-				td.textContent = "App ID:";
-				text_15 = createText("\n                            ");
-				td_1 = createElement("td");
-				text_16 = createText(text_16_value);
-				text_18 = createText("\n                        ");
-				tr_1 = createElement("tr");
-				td_2 = createElement("td");
-				td_2.textContent = "Hostname:";
-				text_20 = createText("\n                            ");
-				td_3 = createElement("td");
-				text_21 = createText(text_21_value);
-				text_23 = createText("\n                        ");
-				tr_2 = createElement("tr");
-				td_4 = createElement("td");
-				td_4.textContent = "Identifier:";
-				text_25 = createText("\n                            ");
-				td_5 = createElement("td");
-				text_26 = createText(text_26_value);
-				text_28 = createText("\n                        ");
-				tr_3 = createElement("tr");
-				td_6 = createElement("td");
-				td_6.textContent = "Environment:";
-				text_30 = createText("\n                            ");
-				td_7 = createElement("td");
-				text_31 = createText(text_31_value);
-				text_33 = createText("\n                        ");
-				tr_4 = createElement("tr");
-				td_8 = createElement("td");
-				td_8.textContent = "Created At:";
-				text_35 = createText("\n                            ");
-				td_9 = createElement("td");
-				text_36 = createText(text_36_value);
-				text_38 = createText("\n                        ");
-				tr_5 = createElement("tr");
-				td_10 = createElement("td");
-				td_10.textContent = "Updated At:";
-				text_40 = createText("\n                            ");
-				td_11 = createElement("td");
-				text_41 = createText(text_41_value);
-				text_45 = createText("\n                ");
-				h3 = createElement("h3");
-				h3.textContent = "Metadata";
-				text_47 = createText("\n                ");
-				hr = createElement("hr");
-				text_48 = createText("\n                ");
-				table_1 = createElement("table");
-				tbody_1 = createElement("tbody");
-				tr_6 = createElement("tr");
-				tr_6.innerHTML = "<td>Health</td>";
-				text_51 = createText("\n                        ");
-				tr_7 = createElement("tr");
-				td_13 = createElement("td");
-				td_13.textContent = "URL:";
-				text_53 = createText("\n                            ");
-				td_14 = createElement("td");
-				text_54 = createText(text_54_value);
-				text_56 = createText("\n                        ");
-				tr_8 = createElement("tr");
-				tr_8.innerHTML = "<td>REPL</td>";
-				text_59 = createText("\n                        ");
-				tr_9 = createElement("tr");
-				tr_9.innerHTML = "<td>Port:</td>\n                            <td>4567</td>";
-				text_64 = createText("\n                        ");
-				tr_10 = createElement("tr");
-				tr_10.innerHTML = "<td>Server</td>";
-				text_67 = createText("\n                        ");
-				tr_11 = createElement("tr");
-				tr_11.innerHTML = "<td>Port:</td>\n                            <td>9876</td>";
-				text_75 = createText("\n\n            ");
-				div_3 = createElement("div");
-				div_3.innerHTML = "<article><h2>Last Week Outages</h2>\n                    <table class=\"table-rows\"><tbody><tr><td>ECONNREFUSED</td>\n                                <td>03:32</td>\n                                <td>Wed, 31 Jan 2018 02:24:23</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>07:02</td>\n                                <td>Mon, 12 Dec 2017 23:14:37</td></tr>\n                            <tr><td>ECONNREFUSED</td>\n                                <td>01:31</td>\n                                <td>Wed, 31 Jan 2018 13:48:42</td></tr></tbody></table></article>";
-				this.h();
-			},
-
-			h: function hydrate() {
-				h1.className = "title";
-				span.className = "tag tag-status tag-small";
-				div.className = "title";
-				div.dataset.status = div_data_status_value = getStatus$1(state.$application.online);
-				header.className = "row";
-				li.className = li_class_value = active(state.selected, 'info', 'active');
-				addListener(li, "click", click_handler);
-				li_1.className = li_1_class_value = active(state.selected, 'services', 'active');
-				addListener(li_1, "click", click_handler_1);
-				ul.className = "tab-menu";
-				table.className = "table-cols";
-				tr_6.className = "t-mixed-title";
-				tr_7.className = "t-mixed-details";
-				tr_8.className = "t-mixed-title";
-				tr_9.className = "t-mixed-details";
-				tr_10.className = "t-mixed-title";
-				tr_11.className = "t-mixed-details";
-				table_1.className = "table-cols-mixed";
-				article.className = "panel-white panel-1 col-left";
-				div_3.className = "col col-right";
-				div_2.className = "layout-2-cols";
-				section.className = section_class_value = active(state.selected, 'info');
-				div_1.className = "layout-w";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(header, target, anchor);
-				appendNode(div, header);
-				appendNode(h1, div);
-				appendNode(text, h1);
-				appendNode(text_1, div);
-				appendNode(span, div);
-				appendNode(text_3, header);
-				button._mount(header, null);
-				insertNode(text_5, target, anchor);
-				chart._mount(target, anchor);
-				insertNode(text_6, target, anchor);
-				insertNode(div_1, target, anchor);
-				appendNode(ul, div_1);
-				appendNode(li, ul);
-				appendNode(li_1, ul);
-				appendNode(text_11, div_1);
-				appendNode(section, div_1);
-				appendNode(h2, section);
-				appendNode(text_13, section);
-				appendNode(div_2, section);
-				appendNode(article, div_2);
-				appendNode(table, article);
-				appendNode(tbody, table);
-				appendNode(tr, tbody);
-				appendNode(td, tr);
-				appendNode(text_15, tr);
-				appendNode(td_1, tr);
-				appendNode(text_16, td_1);
-				appendNode(text_18, tbody);
-				appendNode(tr_1, tbody);
-				appendNode(td_2, tr_1);
-				appendNode(text_20, tr_1);
-				appendNode(td_3, tr_1);
-				appendNode(text_21, td_3);
-				appendNode(text_23, tbody);
-				appendNode(tr_2, tbody);
-				appendNode(td_4, tr_2);
-				appendNode(text_25, tr_2);
-				appendNode(td_5, tr_2);
-				appendNode(text_26, td_5);
-				appendNode(text_28, tbody);
-				appendNode(tr_3, tbody);
-				appendNode(td_6, tr_3);
-				appendNode(text_30, tr_3);
-				appendNode(td_7, tr_3);
-				appendNode(text_31, td_7);
-				appendNode(text_33, tbody);
-				appendNode(tr_4, tbody);
-				appendNode(td_8, tr_4);
-				appendNode(text_35, tr_4);
-				appendNode(td_9, tr_4);
-				appendNode(text_36, td_9);
-				appendNode(text_38, tbody);
-				appendNode(tr_5, tbody);
-				appendNode(td_10, tr_5);
-				appendNode(text_40, tr_5);
-				appendNode(td_11, tr_5);
-				appendNode(text_41, td_11);
-				appendNode(text_45, article);
-				appendNode(h3, article);
-				appendNode(text_47, article);
-				appendNode(hr, article);
-				appendNode(text_48, article);
-				appendNode(table_1, article);
-				appendNode(tbody_1, table_1);
-				appendNode(tr_6, tbody_1);
-				appendNode(text_51, tbody_1);
-				appendNode(tr_7, tbody_1);
-				appendNode(td_13, tr_7);
-				appendNode(text_53, tr_7);
-				appendNode(td_14, tr_7);
-				appendNode(text_54, td_14);
-				appendNode(text_56, tbody_1);
-				appendNode(tr_8, tbody_1);
-				appendNode(text_59, tbody_1);
-				appendNode(tr_9, tbody_1);
-				appendNode(text_64, tbody_1);
-				appendNode(tr_10, tbody_1);
-				appendNode(text_67, tbody_1);
-				appendNode(tr_11, tbody_1);
-				appendNode(text_75, div_2);
-				appendNode(div_3, div_2);
-			},
-
-			p: function update(changed, state) {
-				if (changed.$application && text_value !== (text_value = state.$application.identifier)) {
-					text.data = text_value;
-				}
-
-				if (changed.$application && div_data_status_value !== (div_data_status_value = getStatus$1(state.$application.online))) {
-					div.dataset.status = div_data_status_value;
-				}
-
-				var button_changes = {};
-				if (changed.appid) button_changes.to = "/application/" + state.appid + "/edit";
-				button._set(button_changes);
-
-				if (changed.selected && li_class_value !== (li_class_value = active(state.selected, 'info', 'active'))) {
-					li.className = li_class_value;
-				}
-
-				if (changed.selected && li_1_class_value !== (li_1_class_value = active(state.selected, 'services', 'active'))) {
-					li_1.className = li_1_class_value;
-				}
-
-				if (changed.$application && text_16_value !== (text_16_value = state.$application.appId)) {
-					text_16.data = text_16_value;
-				}
-
-				if (changed.$application && text_21_value !== (text_21_value = state.$application.hostname)) {
-					text_21.data = text_21_value;
-				}
-
-				if (changed.$application && text_26_value !== (text_26_value = state.$application.identifier)) {
-					text_26.data = text_26_value;
-				}
-
-				if (changed.$application && text_31_value !== (text_31_value = state.$application.environment)) {
-					text_31.data = text_31_value;
-				}
-
-				if (changed.$application && text_36_value !== (text_36_value = state.$application.createdAt)) {
-					text_36.data = text_36_value;
-				}
-
-				if (changed.$application && text_41_value !== (text_41_value = state.$application.updatedAt)) {
-					text_41.data = text_41_value;
-				}
-
-				if (changed.$application && text_54_value !== (text_54_value = state.$application.appId)) {
-					text_54.data = text_54_value;
-				}
-
-				if (changed.selected && section_class_value !== (section_class_value = active(state.selected, 'info'))) {
-					section.className = section_class_value;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(header);
-				detachNode(text_5);
-				chart._unmount();
-				detachNode(text_6);
-				detachNode(div_1);
-			},
-
-			d: function destroy$$1() {
-				button.destroy(false);
-				chart.destroy(false);
-				removeListener(li, "click", click_handler);
-				removeListener(li_1, "click", click_handler_1);
-			}
-		};
-	}
-
-	function ApplicationView(options) {
-		init(this, options);
-		this.store = store_1$1();
-		this._state = assign(this.store._init(["application"]), data$5(), options.data);
-		this.store._add(this, ["application"]);
-
-		this._handlers.destroy = [removeFromStore];
-
-		var _oncreate = oncreate$3.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-			this._beforecreate = [];
-			this._aftercreate = [];
-		}
-
-		this._fragment = create_main_fragment$7(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			this._lock = true;
-			callAll(this._beforecreate);
-			callAll(this._oncreate);
-			callAll(this._aftercreate);
-			this._lock = false;
-		}
-	}
-
-	assign(ApplicationView.prototype, methods$4, proto);
-
-	/* modules/server/app/pages/ApplicationAdd.html generated by Svelte v1.54.2 */
-	function identity(item) {
-		if (!item.appId && !item.hostname && !item.environment) return '';
-		return (item.appId + '.' + item.environment + '@' + item.hostname).toLowerCase();
-	}
-
-	function data$6() {
-		return {
-			item: {
-				appId: '',
-				hostname: '',
-				identifier: '',
-				environment: '',
-				data: ''
-			}
-		};
-	}
-
-	var methods$5 = {
-		cancel: function cancel(event) {
-			var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '/';
-
-			if (event && event.preventDefault) {
-				event.preventDefault();
-			}
-
-			if (path) {
-				bus.goto(path);
-			}
-		},
-		save: function save(event, item) {
-			if (event && event.preventDefault) {
-				event.preventDefault();
-			}
-			bus.createApplication(item);
-		}
-	};
-
-	function oncreate$4() {
-		var _this3 = this;
-
-		this.observe('identity', function (value, old) {
-			var item = _this3.get('item');
-			item.identifier = value;
-			_this3.set(item);
-		});
-	}
-
-	function create_main_fragment$8(state, component) {
-		var header,
-		    text_3,
-		    div_1,
-		    ul,
-		    text_6,
-		    section,
-		    form,
-		    h2,
-		    text_8,
-		    article,
-		    div_2,
-		    label,
-		    text_10,
-		    input,
-		    input_updating = false,
-		    text_12,
-		    div_3,
-		    label_1,
-		    text_14,
-		    input_1,
-		    input_1_updating = false,
-		    text_16,
-		    div_4,
-		    label_2,
-		    text_18,
-		    input_2,
-		    input_2_updating = false,
-		    text_20,
-		    div_5,
-		    label_3,
-		    text_22,
-		    input_3,
-		    input_3_updating = false,
-		    text_25,
-		    h2_1,
-		    text_27,
-		    article_1,
-		    div_6,
-		    label_4,
-		    text_29,
-		    textarea,
-		    textarea_updating = false,
-		    text_32,
-		    div_7,
-		    button,
-		    text_34,
-		    button_1;
-
-		function input_input_handler() {
-			var state = component.get();
-			input_updating = true;
-			state.item.appId = input.value;
-			component.set({ item: state.item });
-			input_updating = false;
-		}
-
-		function input_1_input_handler() {
-			var state = component.get();
-			input_1_updating = true;
-			state.item.hostname = input_1.value;
-			component.set({ item: state.item });
-			input_1_updating = false;
-		}
-
-		function input_2_input_handler() {
-			var state = component.get();
-			input_2_updating = true;
-			state.item.environment = input_2.value;
-			component.set({ item: state.item });
-			input_2_updating = false;
-		}
-
-		function input_3_input_handler() {
-			var state = component.get();
-			input_3_updating = true;
-			state.item.identifier = input_3.value;
-			component.set({ item: state.item });
-			input_3_updating = false;
-		}
-
-		function textarea_input_handler() {
-			var state = component.get();
-			textarea_updating = true;
-			state.item.data = textarea.value;
-			component.set({ item: state.item });
-			textarea_updating = false;
-		}
-
-		function click_handler(event) {
-			component.cancel(event);
-		}
-
-		function click_handler_1(event) {
-			var state = component.get();
-			component.save(event, state.item);
-		}
-
-		return {
-			c: function create() {
-				header = createElement("header");
-				header.innerHTML = "<div class=\"title\" data-status=\"online\"><h1 class=\"title\">Application: New</h1></div>";
-				text_3 = createText("\n\n\n");
-				div_1 = createElement("div");
-				ul = createElement("ul");
-				ul.innerHTML = "<li class=\"active\"><a href=\"#\" title=\"Info\">Information</a></li>\n    ";
-				text_6 = createText("\n\n    ");
-				section = createElement("section");
-				form = createElement("form");
-				h2 = createElement("h2");
-				h2.textContent = "Information";
-				text_8 = createText("\n            ");
-				article = createElement("article");
-				div_2 = createElement("div");
-				label = createElement("label");
-				label.textContent = "App ID";
-				text_10 = createText("\n                    ");
-				input = createElement("input");
-				text_12 = createText("\n\n                ");
-				div_3 = createElement("div");
-				label_1 = createElement("label");
-				label_1.textContent = "Hostname";
-				text_14 = createText("\n                    ");
-				input_1 = createElement("input");
-				text_16 = createText("\n\n                ");
-				div_4 = createElement("div");
-				label_2 = createElement("label");
-				label_2.textContent = "Environment";
-				text_18 = createText("\n                    ");
-				input_2 = createElement("input");
-				text_20 = createText("\n\n                ");
-				div_5 = createElement("div");
-				label_3 = createElement("label");
-				label_3.textContent = "Identifier";
-				text_22 = createText("\n                    ");
-				input_3 = createElement("input");
-				text_25 = createText("\n\n            ");
-				h2_1 = createElement("h2");
-				h2_1.textContent = "Metadata";
-				text_27 = createText("\n            ");
-				article_1 = createElement("article");
-				div_6 = createElement("div");
-				label_4 = createElement("label");
-				label_4.textContent = "Data";
-				text_29 = createText("\n                    ");
-				textarea = createElement("textarea");
-				text_32 = createText("\n\n            ");
-				div_7 = createElement("div");
-				button = createElement("button");
-				button.textContent = "Cancel";
-				text_34 = createText("\n                ");
-				button_1 = createElement("button");
-				button_1.textContent = "Save";
-				this.h();
-			},
-
-			h: function hydrate() {
-				header.className = "row";
-				ul.className = "tab-menu";
-				label.htmlFor = "app-id";
-				addListener(input, "input", input_input_handler);
-				input.type = "text";
-				input.placeholder = "App ID";
-				div_2.className = "form-group";
-				label_1.htmlFor = "Hostname";
-				addListener(input_1, "input", input_1_input_handler);
-				input_1.type = "text";
-				input_1.placeholder = "Hostname";
-				div_3.className = "form-group";
-				label_2.htmlFor = "environment";
-				addListener(input_2, "input", input_2_input_handler);
-				input_2.type = "text";
-				input_2.placeholder = "Environment";
-				div_4.className = "form-group";
-				label_3.htmlFor = "identifier";
-				addListener(input_3, "input", input_3_input_handler);
-				input_3.value = state.identity;
-				input_3.type = "text";
-				input_3.placeholder = "Identifier";
-				div_5.className = "form-group";
-				article.className = "panel-white panel-1";
-				label_4.htmlFor = "data";
-				addListener(textarea, "input", textarea_input_handler);
-				textarea.id = "data";
-				textarea.value = "Hotdesk";
-				div_6.className = "form-group";
-				article_1.className = "panel-white panel-1";
-				button.className = "btn btn-secondary";
-				setAttribute(button, "role", "button");
-				addListener(button, "click", click_handler);
-				button_1.className = "btn btn-primary";
-				setAttribute(button_1, "role", "button");
-				addListener(button_1, "click", click_handler_1);
-				div_7.className = "row row-right";
-				form.className = "form-rows";
-				section.id = "info";
-				div_1.className = "layout-w";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(header, target, anchor);
-				insertNode(text_3, target, anchor);
-				insertNode(div_1, target, anchor);
-				appendNode(ul, div_1);
-				appendNode(text_6, div_1);
-				appendNode(section, div_1);
-				appendNode(form, section);
-				appendNode(h2, form);
-				appendNode(text_8, form);
-				appendNode(article, form);
-				appendNode(div_2, article);
-				appendNode(label, div_2);
-				appendNode(text_10, div_2);
-				appendNode(input, div_2);
-
-				input.value = state.item.appId;
-
-				appendNode(text_12, article);
-				appendNode(div_3, article);
-				appendNode(label_1, div_3);
-				appendNode(text_14, div_3);
-				appendNode(input_1, div_3);
-
-				input_1.value = state.item.hostname;
-
-				appendNode(text_16, article);
-				appendNode(div_4, article);
-				appendNode(label_2, div_4);
-				appendNode(text_18, div_4);
-				appendNode(input_2, div_4);
-
-				input_2.value = state.item.environment;
-
-				appendNode(text_20, article);
-				appendNode(div_5, article);
-				appendNode(label_3, div_5);
-				appendNode(text_22, div_5);
-				appendNode(input_3, div_5);
-
-				input_3.value = state.item.identifier;
-
-				appendNode(text_25, form);
-				appendNode(h2_1, form);
-				appendNode(text_27, form);
-				appendNode(article_1, form);
-				appendNode(div_6, article_1);
-				appendNode(label_4, div_6);
-				appendNode(text_29, div_6);
-				appendNode(textarea, div_6);
-
-				textarea.value = state.item.data;
-
-				appendNode(text_32, form);
-				appendNode(div_7, form);
-				appendNode(button, div_7);
-				appendNode(text_34, div_7);
-				appendNode(button_1, div_7);
-			},
-
-			p: function update(changed, state) {
-				if (!input_updating) input.value = state.item.appId;
-				if (!input_1_updating) input_1.value = state.item.hostname;
-				if (!input_2_updating) input_2.value = state.item.environment;
-				if (!input_3_updating) input_3.value = state.item.identifier;
-				if (changed.identity) {
-					input_3.value = state.identity;
-				}
-
-				if (!textarea_updating) textarea.value = state.item.data;
-			},
-
-			u: function unmount() {
-				detachNode(header);
-				detachNode(text_3);
-				detachNode(div_1);
-			},
-
-			d: function destroy$$1() {
-				removeListener(input, "input", input_input_handler);
-				removeListener(input_1, "input", input_1_input_handler);
-				removeListener(input_2, "input", input_2_input_handler);
-				removeListener(input_3, "input", input_3_input_handler);
-				removeListener(textarea, "input", textarea_input_handler);
-				removeListener(button, "click", click_handler);
-				removeListener(button_1, "click", click_handler_1);
-			}
-		};
-	}
-
-	function ApplicationAdd(options) {
-		init(this, options);
-		this._state = assign(data$6(), options.data);
-		this._recompute({ item: 1 }, this._state);
-
-		var _oncreate = oncreate$4.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-		}
-
-		this._fragment = create_main_fragment$8(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			callAll(this._oncreate);
-		}
-	}
-
-	assign(ApplicationAdd.prototype, methods$5, proto);
-
-	ApplicationAdd.prototype._recompute = function _recompute(changed, state) {
-		if (changed.item) {
-			if (differs(state.identity, state.identity = identity(state.item))) changed.identity = true;
-		}
-	};
-
-	/* modules/server/app/pages/ApplicationEdit.html generated by Svelte v1.54.2 */
-	function prevent(event) {
-		if (event && event.preventDefault) {
-			event.preventDefault();
-		}
-	}
-
-	function data$7() {
-		return {
-			selected: 'info',
-			service: {
-				//application
-				//endpoint
-				//uuid
-				errorAlterThreshold: 1,
-				interval: 30000,
-				latencyLimit: 5000,
-				responseAlertThreshold: 1,
-				timeoutAfter: 30000
-			},
-			attributes: []
-		};
-	}
-
-	function formatDate() {
-		var datetime = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-
-		return datetime.replace('Z', '');
-	}
-
-	function getStatus$2(online) {
-		return online ? 'online' : 'offline';
-	}
-
-	function active$1(selected, val) {
-		var type = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'visible';
-
-		if (type === 'visible') {
-			return selected === val ? 'visible' : 'hidden';
-		}
-		if (type === 'active') {
-			return selected === val ? 'active' : 'inactive';
-		}
-	}
-
-	var methods$6 = {
-		select: function select(section) {
-			//this should update #
-			this.set({ selected: section });
-		},
-		setAttributes: function setAttributes() {
-			var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-			var attributes = this.get('attributes') || {};
-
-			function parseKeys(obj) {
-				var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-
-				Object.keys(obj).forEach(function (key) {
-
-					var value = obj[key];
-
-					if ((typeof value === 'undefined' ? 'undefined' : _typeof2(value)) === 'object') {
-						console.log('key', key);
-						return parseKeys(value, path);
-					}
-					// path.push(key);
-
-					attributes.push({
-						key: key,
-						value: value
-					});
-				});
-				path = [];
-			}
-			parseKeys(data);
-
-			this.set({ attributes: attributes });
-		},
-		submit: function submit(event) {
-			prevent(event);
-			//TODO: Track changeset and send that.
-			var app = this.store.get('application');
-			bus.updateApplication(app);
-		},
-		cancel: function cancel(event) {
-			var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '/';
-
-			prevent(event);
-
-			if (path) {
-				bus.goto(path);
-			}
-		}
-	};
-
-	function oncreate$5() {
-		var _this4 = this;
-
-		var appid = this.get('appid');
-		bus.requestApplicationById(appid);
-
-		var setApp = this.store.observe('application', function (app) {
-			if (typeof app.then === 'function') {
-				return;
-			}
-
-			_this4.setAttributes(app.data);
-
-			setApp.cancel();
-		});
-
-		window.page = this;
-	}
-
-	function store_1$2() {
-		return _store;
-	}
-
-	function encapsulateStyles(node) {
-		setAttribute(node, "svelte-3348269699", "");
-	}
-
-	function add_css() {
-		var style = createElement("style");
-		style.id = 'svelte-3348269699-style';
-		style.textContent = "[svelte-3348269699].visible,[svelte-3348269699] .visible{display:inherit}[svelte-3348269699].hidden,[svelte-3348269699] .hidden{display:none}";
-		appendNode(style, document.head);
-	}
-
-	function create_main_fragment$9(state, component) {
-		var header,
-		    div,
-		    h1,
-		    text_value = state.$application.identifier,
-		    text,
-		    text_1,
-		    span,
-		    div_data_status_value,
-		    text_4,
-		    div_1,
-		    ul,
-		    li,
-		    li_class_value,
-		    li_1,
-		    li_1_class_value,
-		    text_9,
-		    form,
-		    section,
-		    h2,
-		    text_11,
-		    article,
-		    div_2,
-		    label,
-		    text_13,
-		    input,
-		    input_updating = false,
-		    text_15,
-		    div_3,
-		    label_1,
-		    text_17,
-		    input_1,
-		    input_1_updating = false,
-		    text_19,
-		    div_4,
-		    label_2,
-		    text_21,
-		    input_2,
-		    input_2_updating = false,
-		    text_23,
-		    div_5,
-		    label_3,
-		    text_25,
-		    input_3,
-		    input_3_updating = false,
-		    text_27,
-		    div_6,
-		    label_4,
-		    text_29,
-		    input_4,
-		    input_4_value_value,
-		    text_31,
-		    div_7,
-		    label_5,
-		    text_33,
-		    input_5,
-		    input_5_value_value,
-		    text_36,
-		    h2_1,
-		    text_38,
-		    article_1,
-		    text_39,
-		    div_8,
-		    section_class_value,
-		    text_45,
-		    section_1,
-		    h2_2,
-		    text_47,
-		    article_2,
-		    div_9,
-		    label_7,
-		    text_49,
-		    input_7,
-		    input_7_updating = false,
-		    text_51,
-		    div_10,
-		    label_8,
-		    text_53,
-		    input_8,
-		    input_8_updating = false,
-		    text_55,
-		    div_11,
-		    label_9,
-		    text_57,
-		    input_9,
-		    input_9_updating = false,
-		    text_59,
-		    div_12,
-		    label_10,
-		    text_61,
-		    input_10,
-		    input_10_updating = false,
-		    text_63,
-		    div_13,
-		    label_11,
-		    text_65,
-		    input_11,
-		    input_11_updating = false,
-		    section_1_class_value,
-		    text_69,
-		    div_14,
-		    button,
-		    text_71,
-		    button_1;
-
-		function click_handler(event) {
-			component.select('info');
-		}
-
-		function click_handler_1(event) {
-			component.select('services');
-		}
-
-		function input_input_handler() {
-			var state = component.get();
-			var $ = component.store.get();
-			input_updating = true;
-			state.$application.appId = input.value;
-			component.store.set({ application: $.application });
-			input_updating = false;
-		}
-
-		function input_1_input_handler() {
-			var state = component.get();
-			var $ = component.store.get();
-			input_1_updating = true;
-			state.$application.hostname = input_1.value;
-			component.store.set({ application: $.application });
-			input_1_updating = false;
-		}
-
-		function input_2_input_handler() {
-			var state = component.get();
-			var $ = component.store.get();
-			input_2_updating = true;
-			state.$application.identifier = input_2.value;
-			component.store.set({ application: $.application });
-			input_2_updating = false;
-		}
-
-		function input_3_input_handler() {
-			var state = component.get();
-			var $ = component.store.get();
-			input_3_updating = true;
-			state.$application.environment = input_3.value;
-			component.store.set({ application: $.application });
-			input_3_updating = false;
-		}
-
-		var attributes = state.attributes;
-
-		var each_blocks = [];
-
-		for (var i = 0; i < attributes.length; i += 1) {
-			each_blocks[i] = create_each_block$1(state, attributes, attributes[i], i, component);
-		}
-
-		function input_7_input_handler() {
-			var state = component.get();
-			input_7_updating = true;
-			state.service.interval = toNumber(input_7.value);
-			component.set({ service: state.service });
-			input_7_updating = false;
-		}
-
-		function input_8_input_handler() {
-			var state = component.get();
-			input_8_updating = true;
-			state.service.latencyLimit = toNumber(input_8.value);
-			component.set({ service: state.service });
-			input_8_updating = false;
-		}
-
-		function input_9_input_handler() {
-			var state = component.get();
-			input_9_updating = true;
-			state.service.responseAlertThreshold = toNumber(input_9.value);
-			component.set({ service: state.service });
-			input_9_updating = false;
-		}
-
-		function input_10_input_handler() {
-			var state = component.get();
-			input_10_updating = true;
-			state.service.errorAlterThreshold = toNumber(input_10.value);
-			component.set({ service: state.service });
-			input_10_updating = false;
-		}
-
-		function input_11_input_handler() {
-			var state = component.get();
-			input_11_updating = true;
-			state.service.timeoutAfter = toNumber(input_11.value);
-			component.set({ service: state.service });
-			input_11_updating = false;
-		}
-
-		function click_handler_2(event) {
-			component.cancel(event);
-		}
-
-		function click_handler_3(event) {
-			component.submit(event);
-		}
-
-		return {
-			c: function create() {
-				header = createElement("header");
-				div = createElement("div");
-				h1 = createElement("h1");
-				text = createText(text_value);
-				text_1 = createText("\n        ");
-				span = createElement("span");
-				text_4 = createText("\n\n\n");
-				div_1 = createElement("div");
-				ul = createElement("ul");
-				li = createElement("li");
-				li.innerHTML = "<a title=\"Info\">Info</a>";
-				li_1 = createElement("li");
-				li_1.innerHTML = "<a title=\"Services\">Services</a>";
-				text_9 = createText("\n    ");
-				form = createElement("form");
-				section = createElement("section");
-				h2 = createElement("h2");
-				h2.textContent = "Information";
-				text_11 = createText("\n            ");
-				article = createElement("article");
-				div_2 = createElement("div");
-				label = createElement("label");
-				label.textContent = "App ID";
-				text_13 = createText("\n                    ");
-				input = createElement("input");
-				text_15 = createText("\n\n                ");
-				div_3 = createElement("div");
-				label_1 = createElement("label");
-				label_1.textContent = "Hostname";
-				text_17 = createText("\n                    ");
-				input_1 = createElement("input");
-				text_19 = createText("\n\n                ");
-				div_4 = createElement("div");
-				label_2 = createElement("label");
-				label_2.textContent = "Identifier";
-				text_21 = createText("\n                    ");
-				input_2 = createElement("input");
-				text_23 = createText("\n\n                ");
-				div_5 = createElement("div");
-				label_3 = createElement("label");
-				label_3.textContent = "Environment";
-				text_25 = createText("\n                    ");
-				input_3 = createElement("input");
-				text_27 = createText("\n\n                ");
-				div_6 = createElement("div");
-				label_4 = createElement("label");
-				label_4.textContent = "Created At";
-				text_29 = createText("\n                    ");
-				input_4 = createElement("input");
-				text_31 = createText("\n\n                ");
-				div_7 = createElement("div");
-				label_5 = createElement("label");
-				label_5.textContent = "Updated At";
-				text_33 = createText("\n                    ");
-				input_5 = createElement("input");
-				text_36 = createText("\n\n            ");
-				h2_1 = createElement("h2");
-				h2_1.textContent = "Metadata";
-				text_38 = createText("\n            ");
-				article_1 = createElement("article");
-
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].c();
-				}
-
-				text_39 = createText("\n                ");
-				div_8 = createElement("div");
-				div_8.innerHTML = "<label for=\"upadted\">Attribute</label>\n                    <input value=\"\" type=\"text\">";
-				text_45 = createText("\n    ");
-				section_1 = createElement("section");
-				h2_2 = createElement("h2");
-				h2_2.textContent = "Services";
-				text_47 = createText("\n            ");
-				article_2 = createElement("article");
-				div_9 = createElement("div");
-				label_7 = createElement("label");
-				label_7.textContent = "Interval";
-				text_49 = createText("\n                    ");
-				input_7 = createElement("input");
-				text_51 = createText("\n\n                ");
-				div_10 = createElement("div");
-				label_8 = createElement("label");
-				label_8.textContent = "Latency Limit";
-				text_53 = createText("\n                    ");
-				input_8 = createElement("input");
-				text_55 = createText("\n\n                ");
-				div_11 = createElement("div");
-				label_9 = createElement("label");
-				label_9.textContent = "Response Alert Threshold";
-				text_57 = createText("\n                    ");
-				input_9 = createElement("input");
-				text_59 = createText("\n\n                ");
-				div_12 = createElement("div");
-				label_10 = createElement("label");
-				label_10.textContent = "Error Alert Threshold";
-				text_61 = createText("\n                    ");
-				input_10 = createElement("input");
-				text_63 = createText("\n\n                ");
-				div_13 = createElement("div");
-				label_11 = createElement("label");
-				label_11.textContent = "Timeout After";
-				text_65 = createText("\n                    ");
-				input_11 = createElement("input");
-				text_69 = createText("\n    ");
-				div_14 = createElement("div");
-				button = createElement("button");
-				button.textContent = "Cancel";
-				text_71 = createText("\n        ");
-				button_1 = createElement("button");
-				button_1.textContent = "Save";
-				this.h();
-			},
-
-			h: function hydrate() {
-				encapsulateStyles(header);
-				h1.className = "title";
-				span.className = "tag tag-status tag-small";
-				div.className = "title";
-				div.dataset.status = div_data_status_value = getStatus$2(state.$application.online);
-				header.className = "row";
-				encapsulateStyles(div_1);
-				li.className = li_class_value = active$1(state.selected, 'info', 'active');
-				addListener(li, "click", click_handler);
-				li_1.className = li_1_class_value = active$1(state.selected, 'services', 'active');
-				addListener(li_1, "click", click_handler_1);
-				ul.className = "tab-menu";
-				label.htmlFor = "app-id";
-				addListener(input, "input", input_input_handler);
-				input.id = "app-id";
-				input.type = "text";
-				div_2.className = "form-group";
-				label_1.htmlFor = "hostname";
-				addListener(input_1, "input", input_1_input_handler);
-				input_1.id = "hostname";
-				input_1.type = "text";
-				div_3.className = "form-group";
-				label_2.htmlFor = "identifier";
-				addListener(input_2, "input", input_2_input_handler);
-				input_2.id = "identifier";
-				input_2.type = "text";
-				div_4.className = "form-group";
-				label_3.htmlFor = "environment";
-				addListener(input_3, "input", input_3_input_handler);
-				input_3.id = "environment";
-				input_3.type = "text";
-				div_5.className = "form-group";
-				label_4.htmlFor = "created";
-				input_4.id = "created";
-				input_4.value = input_4_value_value = formatDate(state.$application.createdAt);
-				input_4.type = "datetime-local";
-				input_4.disabled = true;
-				div_6.className = "form-group";
-				label_5.htmlFor = "upadted";
-				input_5.id = "updated";
-				input_5.value = input_5_value_value = formatDate(state.$application.updatedAt);
-				input_5.type = "datetime-local";
-				input_5.disabled = true;
-				div_7.className = "form-group";
-				article.className = "panel-white panel-1";
-				div_8.className = "form-group";
-				article_1.className = "panel-white panel-1";
-				section.id = "info";
-				section.className = section_class_value = active$1(state.selected, 'info');
-				label_7.htmlFor = "interval";
-				addListener(input_7, "input", input_7_input_handler);
-				input_7.name = "interval";
-				input_7.type = "number";
-				div_9.className = "form-group";
-				label_8.htmlFor = "latency";
-				addListener(input_8, "input", input_8_input_handler);
-				input_8.name = "latency";
-				input_8.type = "number";
-				div_10.className = "form-group";
-				label_9.htmlFor = "threshold";
-				addListener(input_9, "input", input_9_input_handler);
-				input_9.name = "threshold";
-				input_9.type = "number";
-				div_11.className = "form-group";
-				label_10.htmlFor = "errorThreshold";
-				addListener(input_10, "input", input_10_input_handler);
-				input_10.name = "errorThreshold";
-				input_10.type = "number";
-				div_12.className = "form-group";
-				label_11.htmlFor = "timeout";
-				addListener(input_11, "input", input_11_input_handler);
-				input_11.name = "timeout";
-				input_11.type = "number";
-				div_13.className = "form-group";
-				article_2.className = "panel-white panel-1";
-				section_1.id = "services";
-				section_1.className = section_1_class_value = active$1(state.selected, 'services');
-				button.className = "btn btn-secondary";
-				setAttribute(button, "role", "button");
-				addListener(button, "click", click_handler_2);
-				button_1.className = "btn btn-primary";
-				addListener(button_1, "click", click_handler_3);
-				div_14.className = "row row-right";
-				form.className = "form-rows";
-				div_1.className = "layout-w";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(header, target, anchor);
-				appendNode(div, header);
-				appendNode(h1, div);
-				appendNode(text, h1);
-				appendNode(text_1, div);
-				appendNode(span, div);
-				insertNode(text_4, target, anchor);
-				insertNode(div_1, target, anchor);
-				appendNode(ul, div_1);
-				appendNode(li, ul);
-				appendNode(li_1, ul);
-				appendNode(text_9, div_1);
-				appendNode(form, div_1);
-				appendNode(section, form);
-				appendNode(h2, section);
-				appendNode(text_11, section);
-				appendNode(article, section);
-				appendNode(div_2, article);
-				appendNode(label, div_2);
-				appendNode(text_13, div_2);
-				appendNode(input, div_2);
-
-				input.value = state.$application.appId;
-
-				appendNode(text_15, article);
-				appendNode(div_3, article);
-				appendNode(label_1, div_3);
-				appendNode(text_17, div_3);
-				appendNode(input_1, div_3);
-
-				input_1.value = state.$application.hostname;
-
-				appendNode(text_19, article);
-				appendNode(div_4, article);
-				appendNode(label_2, div_4);
-				appendNode(text_21, div_4);
-				appendNode(input_2, div_4);
-
-				input_2.value = state.$application.identifier;
-
-				appendNode(text_23, article);
-				appendNode(div_5, article);
-				appendNode(label_3, div_5);
-				appendNode(text_25, div_5);
-				appendNode(input_3, div_5);
-
-				input_3.value = state.$application.environment;
-
-				appendNode(text_27, article);
-				appendNode(div_6, article);
-				appendNode(label_4, div_6);
-				appendNode(text_29, div_6);
-				appendNode(input_4, div_6);
-				appendNode(text_31, article);
-				appendNode(div_7, article);
-				appendNode(label_5, div_7);
-				appendNode(text_33, div_7);
-				appendNode(input_5, div_7);
-				appendNode(text_36, section);
-				appendNode(h2_1, section);
-				appendNode(text_38, section);
-				appendNode(article_1, section);
-
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].m(article_1, null);
-				}
-
-				appendNode(text_39, article_1);
-				appendNode(div_8, article_1);
-				appendNode(text_45, form);
-				appendNode(section_1, form);
-				appendNode(h2_2, section_1);
-				appendNode(text_47, section_1);
-				appendNode(article_2, section_1);
-				appendNode(div_9, article_2);
-				appendNode(label_7, div_9);
-				appendNode(text_49, div_9);
-				appendNode(input_7, div_9);
-
-				input_7.value = state.service.interval;
-
-				appendNode(text_51, article_2);
-				appendNode(div_10, article_2);
-				appendNode(label_8, div_10);
-				appendNode(text_53, div_10);
-				appendNode(input_8, div_10);
-
-				input_8.value = state.service.latencyLimit;
-
-				appendNode(text_55, article_2);
-				appendNode(div_11, article_2);
-				appendNode(label_9, div_11);
-				appendNode(text_57, div_11);
-				appendNode(input_9, div_11);
-
-				input_9.value = state.service.responseAlertThreshold;
-
-				appendNode(text_59, article_2);
-				appendNode(div_12, article_2);
-				appendNode(label_10, div_12);
-				appendNode(text_61, div_12);
-				appendNode(input_10, div_12);
-
-				input_10.value = state.service.errorAlterThreshold;
-
-				appendNode(text_63, article_2);
-				appendNode(div_13, article_2);
-				appendNode(label_11, div_13);
-				appendNode(text_65, div_13);
-				appendNode(input_11, div_13);
-
-				input_11.value = state.service.timeoutAfter;
-
-				appendNode(text_69, form);
-				appendNode(div_14, form);
-				appendNode(button, div_14);
-				appendNode(text_71, div_14);
-				appendNode(button_1, div_14);
-			},
-
-			p: function update(changed, state) {
-				if (changed.$application && text_value !== (text_value = state.$application.identifier)) {
-					text.data = text_value;
-				}
-
-				if (changed.$application && div_data_status_value !== (div_data_status_value = getStatus$2(state.$application.online))) {
-					div.dataset.status = div_data_status_value;
-				}
-
-				if (changed.selected && li_class_value !== (li_class_value = active$1(state.selected, 'info', 'active'))) {
-					li.className = li_class_value;
-				}
-
-				if (changed.selected && li_1_class_value !== (li_1_class_value = active$1(state.selected, 'services', 'active'))) {
-					li_1.className = li_1_class_value;
-				}
-
-				if (!input_updating) input.value = state.$application.appId;
-				if (!input_1_updating) input_1.value = state.$application.hostname;
-				if (!input_2_updating) input_2.value = state.$application.identifier;
-				if (!input_3_updating) input_3.value = state.$application.environment;
-				if (changed.$application && input_4_value_value !== (input_4_value_value = formatDate(state.$application.createdAt))) {
-					input_4.value = input_4_value_value;
-				}
-
-				if (changed.$application && input_5_value_value !== (input_5_value_value = formatDate(state.$application.updatedAt))) {
-					input_5.value = input_5_value_value;
-				}
-
-				var attributes = state.attributes;
-
-				if (changed.attributes) {
-					for (var i = 0; i < attributes.length; i += 1) {
-						if (each_blocks[i]) {
-							each_blocks[i].p(changed, state, attributes, attributes[i], i);
-						} else {
-							each_blocks[i] = create_each_block$1(state, attributes, attributes[i], i, component);
-							each_blocks[i].c();
-							each_blocks[i].m(article_1, text_39);
-						}
-					}
-
-					for (; i < each_blocks.length; i += 1) {
-						each_blocks[i].u();
-						each_blocks[i].d();
-					}
-					each_blocks.length = attributes.length;
-				}
-
-				if (changed.selected && section_class_value !== (section_class_value = active$1(state.selected, 'info'))) {
-					section.className = section_class_value;
-				}
-
-				if (!input_7_updating) input_7.value = state.service.interval;
-				if (!input_8_updating) input_8.value = state.service.latencyLimit;
-				if (!input_9_updating) input_9.value = state.service.responseAlertThreshold;
-				if (!input_10_updating) input_10.value = state.service.errorAlterThreshold;
-				if (!input_11_updating) input_11.value = state.service.timeoutAfter;
-				if (changed.selected && section_1_class_value !== (section_1_class_value = active$1(state.selected, 'services'))) {
-					section_1.className = section_1_class_value;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(header);
-				detachNode(text_4);
-				detachNode(div_1);
-
-				for (var i = 0; i < each_blocks.length; i += 1) {
-					each_blocks[i].u();
-				}
-			},
-
-			d: function destroy$$1() {
-				removeListener(li, "click", click_handler);
-				removeListener(li_1, "click", click_handler_1);
-				removeListener(input, "input", input_input_handler);
-				removeListener(input_1, "input", input_1_input_handler);
-				removeListener(input_2, "input", input_2_input_handler);
-				removeListener(input_3, "input", input_3_input_handler);
-
-				destroyEach(each_blocks);
-
-				removeListener(input_7, "input", input_7_input_handler);
-				removeListener(input_8, "input", input_8_input_handler);
-				removeListener(input_9, "input", input_9_input_handler);
-				removeListener(input_10, "input", input_10_input_handler);
-				removeListener(input_11, "input", input_11_input_handler);
-				removeListener(button, "click", click_handler_2);
-				removeListener(button_1, "click", click_handler_3);
-			}
-		};
-	}
-
-	// (56:16) {{#each attributes as attr}}
-	function create_each_block$1(state, attributes, attr, attr_index, component) {
-		var div,
-		    label,
-		    text_value = attr.key,
-		    text,
-		    text_1,
-		    input,
-		    input_value_value;
-
-		return {
-			c: function create() {
-				div = createElement("div");
-				label = createElement("label");
-				text = createText(text_value);
-				text_1 = createText("\n                    ");
-				input = createElement("input");
-				this.h();
-			},
-
-			h: function hydrate() {
-				label.htmlFor = "upadted";
-				input.value = input_value_value = attr.value;
-				input.type = "text";
-				div.className = "form-group";
-			},
-
-			m: function mount(target, anchor) {
-				insertNode(div, target, anchor);
-				appendNode(label, div);
-				appendNode(text, label);
-				appendNode(text_1, div);
-				appendNode(input, div);
-			},
-
-			p: function update(changed, state, attributes, attr, attr_index) {
-				if (changed.attributes && text_value !== (text_value = attr.key)) {
-					text.data = text_value;
-				}
-
-				if (changed.attributes && input_value_value !== (input_value_value = attr.value)) {
-					input.value = input_value_value;
-				}
-			},
-
-			u: function unmount() {
-				detachNode(div);
-			},
-
-			d: noop
-		};
-	}
-
-	function ApplicationEdit(options) {
-		init(this, options);
-		this.store = store_1$2();
-		this._state = assign(this.store._init(["application"]), data$7(), options.data);
-		this.store._add(this, ["application"]);
-
-		this._handlers.destroy = [removeFromStore];
-
-		if (!document.getElementById("svelte-3348269699-style")) add_css();
-
-		var _oncreate = oncreate$5.bind(this);
-
-		if (!options.root) {
-			this._oncreate = [];
-		}
-
-		this._fragment = create_main_fragment$9(this._state, this);
-
-		this.root._oncreate.push(_oncreate);
-
-		if (options.target) {
-			this._fragment.c();
-			this._fragment.m(options.target, options.anchor || null);
-
-			callAll(this._oncreate);
-		}
-	}
-
-	assign(ApplicationEdit.prototype, methods$6, proto);
-
 	/* modules/server/app/Application.html generated by Svelte v1.54.2 */
-	var router = createRouter({
-		'/': Home,
-		'/application/add': ApplicationAdd,
-		'/application/:appid/edit': ApplicationEdit,
-		'/application/:appid': ApplicationView
-	});
-
-	window.api = api;
-	window.router = router;
-
 	function oncreate$6() {
 		router.start(location, document.querySelector('#content'));
 	}
@@ -5736,6 +5997,402 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 	assign(Application.prototype, proto);
 
+	var extend = createCommonjsModule(function (module, exports) {
+		/*
+   * gextend
+   * https://github.com/goliatone/gextend
+   * Created with gbase.
+   * Copyright (c) 2014 goliatone
+   * Licensed under the MIT license.
+   */
+		/* jshint strict: false, plusplus: true */
+		/*global define: false, require: false, module: false, exports: false */
+		(function (root, name, deps, factory) {
+			if (typeof deps === 'function') {
+				factory = deps;
+				deps = [];
+			}
+
+			{
+				module.exports = factory.apply(root, deps.map(commonjsRequire));
+			}
+		})(commonjsGlobal, "extend", function () {
+			/**
+    * Extend method.
+    * @param  {Object} target Source object
+    * @return {Object}        Resulting object from
+    *                         extending target to params.
+    */
+			var _extend = function extend(target) {
+				var sources = [].slice.call(arguments, 1);
+
+				sources.forEach(function (source) {
+					if (!source) return;
+					for (var property in source) {
+						if (source[property] && source[property].constructor && source[property].constructor === Object) {
+							target[property] = target[property] || {};
+							target[property] = extend(target[property], source[property]);
+						} else target[property] = source[property];
+					}
+				});
+				return target;
+			};
+
+			_extend.VERSION = '0.3.1';
+
+			return _extend;
+		});
+	});
+
+	var gextend = extend;
+
+	var ServiceModel = function () {
+		function ServiceModel(data) {
+			_classCallCheck(this, ServiceModel);
+
+			if (data.vo) {
+				this.fromVO(data.vo);
+			}
+		}
+
+		_createClass(ServiceModel, [{
+			key: 'fromVO',
+			value: function fromVO(vo) {
+				gextend(this, vo);
+			}
+		}]);
+
+		return ServiceModel;
+	}();
+
+	var InsightModel = function () {
+		function InsightModel(data) {
+			_classCallCheck(this, InsightModel);
+
+			if (data.vo) {
+				this.fromVO(data.vo);
+			}
+		}
+
+		_createClass(InsightModel, [{
+			key: 'fromVO',
+			value: function fromVO(vo) {
+				gextend(this, vo);
+				this.application = vo.service.id;
+			}
+		}]);
+
+		return InsightModel;
+	}();
+
+	var ApplicationModel = function () {
+		function ApplicationModel(data) {
+			_classCallCheck(this, ApplicationModel);
+
+			if (data.vo) {
+				this.fromVO(data.vo);
+			}
+		}
+
+		_createClass(ApplicationModel, [{
+			key: 'fromVO',
+			value: function fromVO(vo) {
+				gextend(this, vo);
+			}
+		}, {
+			key: 'sayHello',
+			value: function sayHello() {
+				return 'Hello ' + this.appId;
+			}
+		}, {
+			key: 'service',
+			set: function set(vo) {
+				this._service = new ServiceModel({ vo: vo });
+			},
+			get: function get() {
+				return this._service;
+			}
+		}]);
+
+		return ApplicationModel;
+	}();
+
+	var BaseCollection = function () {
+		function BaseCollection() {
+			var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+			_classCallCheck(this, BaseCollection);
+
+			var self = this;
+			var proxy = new Proxy([], {
+				set: function set(target, property, value) {
+					target[property] = value;
+					return true;
+				},
+				has: function has(target, property) {
+					return self[property] || target[property];
+				},
+				get: function get(target, property) {
+					if (typeof property === 'string' && self[property]) {
+						if (typeof self[property] === 'function') {
+							return self[property].bind(target);
+						}
+						return self[property];
+					} else {
+						return target[property];
+					}
+				}
+			});
+
+			if (data.results) {
+				proxy.fromVO(data.results);
+			}
+
+			return proxy;
+		}
+
+		_createClass(BaseCollection, [{
+			key: 'findOne',
+			value: function findOne(id) {
+				return this.find(function (record) {
+					return record.id === id;
+				});
+			}
+		}]);
+
+		return BaseCollection;
+	}();
+
+	var ServiceCollection = function (_BaseCollection) {
+		_inherits(ServiceCollection, _BaseCollection);
+
+		function ServiceCollection() {
+			_classCallCheck(this, ServiceCollection);
+
+			return _possibleConstructorReturn(this, (ServiceCollection.__proto__ || Object.getPrototypeOf(ServiceCollection)).apply(this, arguments));
+		}
+
+		_createClass(ServiceCollection, [{
+			key: 'fromVO',
+			value: function fromVO(results) {
+				var _this7 = this;
+
+				if (!results || !results.value) {
+					return console.error('Invalid response');
+				}
+
+				results.value.forEach(function (vo) {
+					_this7.push(new ServiceModel({ vo: vo }));
+				});
+			}
+		}]);
+
+		return ServiceCollection;
+	}(BaseCollection);
+
+	var InsightsCollection = function (_BaseCollection2) {
+		_inherits(InsightsCollection, _BaseCollection2);
+
+		function InsightsCollection() {
+			_classCallCheck(this, InsightsCollection);
+
+			return _possibleConstructorReturn(this, (InsightsCollection.__proto__ || Object.getPrototypeOf(InsightsCollection)).apply(this, arguments));
+		}
+
+		_createClass(InsightsCollection, [{
+			key: 'fromVO',
+			value: function fromVO(results) {
+				var _this9 = this;
+
+				if (!results || !results.value) {
+					return console.error('Invalid response');
+				}
+
+				results.value.forEach(function (vo) {
+					_this9.push(new InsightModel({ vo: vo }));
+				});
+			}
+		}]);
+
+		return InsightsCollection;
+	}(BaseCollection);
+
+	var ApplicationCollection = function (_BaseCollection3) {
+		_inherits(ApplicationCollection, _BaseCollection3);
+
+		function ApplicationCollection() {
+			_classCallCheck(this, ApplicationCollection);
+
+			return _possibleConstructorReturn(this, (ApplicationCollection.__proto__ || Object.getPrototypeOf(ApplicationCollection)).apply(this, arguments));
+		}
+
+		_createClass(ApplicationCollection, [{
+			key: 'fromVO',
+			value: function fromVO(results) {
+				var _this11 = this;
+
+				if (!results || !results.value) {
+					return console.error('Invalid response');
+				}
+
+				results.value.forEach(function (vo) {
+					_this11.push(new ApplicationModel({ vo: vo }));
+				});
+			}
+		}]);
+
+		return ApplicationCollection;
+	}(BaseCollection);
+
+	function createApplication(data) {
+		return fetch('/api/application', {
+			method: 'POST',
+			headers: {
+				Accept: 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data)
+		}).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			return new ApplicationModel({
+				vo: json.value
+			});
+		});
+	}
+
+	function updateApplication(id, data) {
+		return fetch('/api/application/' + id, {
+			method: 'PUT',
+			headers: {
+				Accept: 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data)
+		}).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			return new ApplicationModel({
+				vo: json.value
+			});
+		});
+	}
+
+	function deleteApplication(id) {
+		if ((typeof id === 'undefined' ? 'undefined' : _typeof2(id)) === 'object') id = id.id;
+
+		return fetch('/api/application/' + id, {
+			method: 'DELETE',
+			headers: {
+				Accept: 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			}
+		}).then(function (res) {
+			return res.json();
+		});
+	}
+
+	function getApplication(id) {
+		return fetch('/api/application/' + id).then(function (res) {
+			return res.json();
+		}).then(function (json) {
+			return new ApplicationModel({
+				vo: json.value
+			});
+		});
+	}
+
+	function getApplications() {
+		return fetch('/api/applications').then(function (res) {
+			return res.json();
+		}).then(function (results) {
+			return new ApplicationCollection({ results: results });
+		});
+	}
+
+	function getServices() {
+		return fetch('/api/services').then(function (res) {
+			return res.json();
+		}).then(function (results) {
+			return new ServiceCollection({ results: results });
+		});
+	}
+
+	function getInsights() {
+		return fetch('/api/insights').then(function (res) {
+			return res.json();
+		}).then(function (results) {
+			return new InsightsCollection({ results: results });
+		});
+	}
+
+	function getInsightsFor(application) {
+		return getInsights().then(function (insights) {
+			return insights.find(function (insight) {
+				return insight.application = application;
+			});
+		});
+	}
+
+	function buildApplicationInsights() {
+		var services = getServices();
+		var applications = getApplications();
+		var insights = getInsights();
+
+		return new Promise(function (resolve, reject) {
+			Promise.all([services, applications, insights]).then(function (_ref4) {
+				var _ref5 = _slicedToArray(_ref4, 3),
+				    services = _ref5[0],
+				    applications = _ref5[1],
+				    insights = _ref5[2];
+
+				services.map(function (service) {
+					applications.map(function (application) {
+						if (application.id === service.application) {
+							application.service = service;
+
+							insights.map(function (insight) {
+								if (insight.service.id === service.id) {
+									application.insights = insight;
+								}
+							});
+						}
+					});
+				});
+
+				resolve(applications);
+			});
+		});
+	}
+
+	var api = {
+		getInsights: getInsights,
+		getApplication: getApplication,
+		getApplications: getApplications,
+		getInsightsFor: getInsightsFor,
+		getServices: getServices,
+		createApplication: createApplication,
+		deleteApplication: deleteApplication,
+		updateApplication: updateApplication,
+		buildApplicationInsights: buildApplicationInsights
+	};
+
+	// import io from 'socket.io-client';
+
+	var socket = io();
+	socket.on('connect', function () {
+		console.info('connected');
+
+		socket.on('message', function (payload) {
+			console.warn('Message', payload);
+		});
+
+		socket.on('status.update', function (event) {
+			console.log('status.update', event);
+		});
+	});
+	window.socket = socket;
+
 	var states = bus.EVENT_TYPES;
 
 	bus.requestCompiledData = function () {
@@ -5768,6 +6425,14 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 		bus.dispatch(states.NAVIGATION_GOTO, { uri: uri, data: data });
 	};
 
+	bus.goBack = function () {
+		this.dispatch(states.NAVIGATION_GO_BACK);
+	};
+
+	bus.goForward = function () {
+		this.dispatch(states.NAVIGATION_GO_FORWARD);
+	};
+
 	bus.handle(states.REQUEST_APPLICATION_ID, function (data) {
 		var promise = api.getApplication(data.id);
 		promise.then(function (application) {
@@ -5777,7 +6442,15 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 	});
 
 	bus.handle(states.NAVIGATION_GOTO, function (data) {
-		history.push(data.uri);
+		router.goto(data.uri);
+	});
+
+	bus.handle(states.NAVIGATION_GO_BACK, function (_) {
+		router.goBack();
+	});
+
+	bus.handle(states.NAVIGATION_GO_FORWARD, function (_) {
+		router.goForward();
 	});
 
 	bus.handle(states.APPLICATION_CREATE, function (data) {
@@ -5815,7 +6488,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 			return out;
 		}
 
-		var promise = api.updateApplication(data.id, getAttributes(data.application));
+		var promise = api.updateApplication(data.application.id, getAttributes(data.application));
 
 		promise.then(function (application) {
 			bus.goto('/application/' + application.id);
@@ -5847,7 +6520,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 	var app = new Application({
 		//this breaks the layout, it does not support being wrapped by div
-		// target: document.querySelector('#wrapper')
+		// target: document.querySelector('#wrapper'),
 		target: document.getElementsByTagName('body')[0],
 		store: function store() {
 			return _store;
@@ -5856,5 +6529,15 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 	window.app = app;
 	window.bus = bus;
+	window.api = api;
+	window.router = router;
 	window.rootStore = _store;
+
+	{
+		// Enable LiveReload
+		var host = (location.host || 'localhost').split(':')[0];
+		document.write('<script src="http://' + host + ':35729/livereload.js?snipver=1"></script>');
+	}
+
+	console.log('NODE_ENV', "development");
 })();
