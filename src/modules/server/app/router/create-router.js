@@ -132,9 +132,17 @@ const createRouter = routes => {
     };
 
     return {
-        start: (location, targetElement) => {
+        /**
+         * Initialize a new router.
+         * TODO: We should take an object with 
+         * different configuration options.
+         * One of the should be type of history
+         * We create history object here based on 
+         * browser or hash.
+         */
+        start: (location, renderElement) => {
             
-            target = targetElement;
+            target = renderElement;
 
             /**
              * Listen for changes in URL and handle
