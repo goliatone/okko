@@ -22,6 +22,15 @@ class PersistenceApplicationCommand {
             record
         });
 
+        context.io.emit('status.update', {
+            topic, 
+            record
+        });
+
+        if(action === 'destroy') {
+            return;
+        }
+
         let health = Keypath.get(record, 'data.health', false);
 
         /**
@@ -84,9 +93,6 @@ class PersistenceApplicationCommand {
          */
         service.application = record.id;
 
-        console.log('-------------')
-        console.log(service)
-        console.log('-------------')
         return Service.updateOrCreate(criteria, service);
     }
 }
