@@ -59,7 +59,7 @@ function initialize(router, config) {
                     }
                 });
             })
-            .catch(next);
+        .catch(next);
     });
 
     /**
@@ -80,7 +80,7 @@ function initialize(router, config) {
                     success: true
                 });
             })
-            .catch(next);
+        .catch(next);
     });
 
     router.get('/applications', function listApplications(req, res, next) {
@@ -91,7 +91,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.post('/application', function createApplication(req, res, next) {
@@ -102,7 +102,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.get('/application/:id', function getApplication(req, res, next) {
@@ -112,7 +112,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.put('/application/:id', function updateApplication(req, res, next) {
@@ -124,7 +124,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.delete('/application/:id', function updateApplication(req, res, next) {
@@ -135,7 +135,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.get('/application/:id/services', function getApplicationServices(req, res, next) {
@@ -145,7 +145,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.get('/services', function getServices(req, res, next) {
@@ -156,7 +156,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.get('/service/:id', function getService(req, res, next) {
@@ -166,7 +166,7 @@ function initialize(router, config) {
                 success: true,
                 value: result
             });
-        });
+        }).catch(next);
     });
 
     router.get('/insights', function getInsights(req, res, next) {
@@ -179,7 +179,7 @@ function initialize(router, config) {
                     value: result
                 });
             }
-        });
+        }).catch(next);
     });
 
     router.get('/service/:id/insights', function getInsightsFor(req, res, next){
@@ -195,7 +195,23 @@ function initialize(router, config) {
                     value: result
                 });
             }
-        });
+        }).catch(next);
+    });
+
+    router.get('/service/:id/latency', function getLatencyFor(req, res, next){
+        const id = req.params.id;
+        console.log('---> id', id);
+        
+        context.emit('service.id.latency', {
+            id,
+            respondTo: function(err, result) {
+                if(err) next(err);
+                else res.send({
+                    success: true,
+                    value: result
+                });
+            }
+        }).catch(next);
     });
 
     return router;
