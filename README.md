@@ -36,9 +36,21 @@ outfile.close()
 
 
 <!-- 
+svelte UI elements:
+https://github.com/scottbedard/svelte-heatmap
+https://github.com/jikkai/svelte-flat
+https://github.com/gCombinator/svelte-flat-ui
+https://github.com/m59peacemaker/svelte-modal
+https://github.com/saibotsivad/svelte-progress-bar
+-->
+
+<!-- 
 https://sensuapp.org/
 https://www.icinga.com/
 https://alternativeto.net/tag/uptime-monitoring/
 
 https://fonts.google.com/selection?category=Sans+Serif&selection.family=Audiowide|Bungee|Days+One|Exo|Fascinate+Inline|Monoton|Orbitron|Plaster|Russo+One
+
+testing store:
+https://glebbahmutov.com/blog/testing-svelte-store/
 -->
