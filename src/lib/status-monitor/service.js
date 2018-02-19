@@ -56,8 +56,6 @@ class StatusMonitorService extends EventEmitter {
     }
 
     async probe(service) {
-        // console.log('service', service);
-
         let monitor = this.findServiceMonitor(service);
 
         try {
@@ -93,6 +91,7 @@ class StatusMonitorService extends EventEmitter {
             const limit = service.latencyLimit;
 
             if (limit && probe.elapsedTime > limit) {
+
                 this.emit('monitor.latency.warning', {
                     service,
                     probe
@@ -198,6 +197,7 @@ class StatusMonitorService extends EventEmitter {
     loadPlugins(prefix, callback) {
         let result = getPackage.sync();
         let { dependencies } = result.pkg;
+        
         Object.keys(dependencies).map(dep => {
             if (dep.indexOf(prefix) === 0) {
                 callback(dep);
