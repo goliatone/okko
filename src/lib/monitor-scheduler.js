@@ -1,7 +1,7 @@
 'use strict';
 
 const MonitorService = require('./status-monitor/service');
-const SchedulerService = require('./scheduler/scheduler-service');
+const SchedulerService = require('./scheduler/service');
 
 let monitor = new MonitorService({
     persistenceOptions: {
@@ -27,17 +27,6 @@ scheduler.on('scheduler:task:created', ({task}) => {
     }
 });
 
-scheduler.on('scheduler:task:deserialized', ({task}) => {
-    console.log('scheduler task deserialized', task.id);
-
-    if(task.exists) {
-        monitor.persistence.serviceUpdate(task.data);
-    } else {
-        monitor.persistence.serviceCreate(task.data);
-    }
-    // task.commit(30000);
-});
-
 scheduler.on('scheduler:task:execute', async ({task}) => {
     console.log('scheduler task execute', task.id);
     console.log(task.data);
@@ -59,5 +48,3 @@ scheduler.on('scheduler:task:execute', async ({task}) => {
      */
     task.commit();
 });
-
-process.on('unhandledExecption', console.error);
