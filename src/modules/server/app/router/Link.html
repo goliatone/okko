@@ -2,14 +2,12 @@
     {{#if text}} 
         {{text}} 
     {{else}}
-    {{yield}}
+        {{yield}}
     {{/if}}
 </a>
 
 <script>
-    // import history from '../services/history';
-    // import history from '../router/history';
-    import router from '../router';
+    import router from './index';
     
     export default {
         data() {
