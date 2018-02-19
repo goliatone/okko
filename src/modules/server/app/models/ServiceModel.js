@@ -15,7 +15,6 @@ export class ServiceModel {
     }
 
     fromVO(vo) {
-        console.log('VO', vo);
         extend(this, vo);
     }
 }
