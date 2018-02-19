@@ -23,6 +23,12 @@ class Task {
 
     init(options = {}) {
         extend(this, defaults, options);
+        
+        if(this.serializedTask) {
+            const serializedTask = this.serializedTask;
+            delete this.serializedTask;
+            this.deserialize(serializedTask);
+        }
     }
 
     fromJSON(data) {
@@ -53,6 +59,11 @@ class Task {
         this.fromJSON(json);
     }
 
+    /** 
+     * Once we pull a task from our 
+     * persistence layer, we need to
+     * trigger our TTL expire.
+    */
     createIfNew() {
         return new Promise((resolve, reject) => {
             
@@ -68,6 +79,7 @@ class Task {
             //We should check if both exist.
             client.exists(ttlKey, (err, exists) => {
                 if (err) return reject(err);
+
                 if(exists) {
                     console.log('† SET TTL %s %s\n', ttlKey, ttl);
                     this.exists = exists;
@@ -81,6 +93,23 @@ class Task {
                 }
             });
         });
+    }
+    commit(ttl) {
+        if(!isNaN(ttl)) {
+            console.log('TTL', ttl);
+            this.ttl = ttl;
+        }
+
+        this.runs++;
+
+        this.client
+            .multi()
+            .set(this.key, this.serialize())
+            .set(`${this.key}:ttl`, this.key, 'PX', this.ttl)
+            .exec((err, res) => {
+                if (err) console.error('ERROR', err);
+                else console.log('task rescheduled: OK');
+            });
     }
 
     set id(value) {
