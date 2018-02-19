@@ -2,7 +2,7 @@
 
 const BaseModel = require('core.io-persistence').BaseModel;
 
-let schema = {
+const schema = {
     identity: 'application',
     exportName: 'Application',
     connection: 'development',
@@ -47,11 +47,11 @@ let schema = {
             online: true
         };
 
-        attrs.forEach((attr) => {
+        attrs.forEach(attr => {
             values[attr] = payload[attr];
         });
 
-        Object.keys(payload).forEach((key) => {
+        Object.keys(payload).forEach(key => {
             if (attrs.includes(key)) return;
 
             if (!values.data) {
@@ -66,7 +66,7 @@ let schema = {
             criteria.identifier = payload.identifier;
         } else {
             values.identifier =
-            criteria.identifier = payload.appId + '@' + payload.hostname;
+            criteria.identifier = makeIdentifier(payload);
         }
 
         /**
@@ -77,8 +77,10 @@ let schema = {
     }
 };
 
-let Model = BaseModel.extend(schema);
-
-module.exports = Model;
+module.exports = BaseModel.extend(schema);
 
 module.exports.schema = schema;
+
+function makeIdentifier({appId, environment, hostname}) {
+    return (`${appId}.${environment}@${hostname}`).toLowerCase();
+}
