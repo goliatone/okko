@@ -2,6 +2,8 @@
 const uuid = require('uuid');
 const extend = require('gextend');
 
+const Service = require('./Service');
+
 const defaults = {
     keySuffix: {
         primaryKeySuffix: 'service',
@@ -39,65 +41,6 @@ const defaults = {
         };
     }
 };
-
-class Service {
-    constructor(...options) {
-        this.init(...options);
-    }
-
-    init(...options) {
-        extend(this, ...options);
-
-        if (!this.id) {
-            this.id = uuid.v4();
-        }
-
-        this.createdAt = new Date();
-    }
-
-    setData(data={}) {
-        this.data = data;
-
-        if (data.id) {
-            this.id = data.id;
-        }
-    }
-
-    serialize() {
-        return JSON.stringify({
-            id: this.id,
-            createdAt: this.createdAt
-        });
-    }
-
-    deserialize() {
-        return this.data;
-    }
-
-    get primaryKey() {
-        return `${this.primaryKeySuffix}:${this.id}`;
-    }
-
-    get servicesKey() {
-        return this.servicesKeySuffix;
-    }
-
-    get currentOutageKey() {
-        return `${this.id}:${this.currentOutageKeySuffix}`;
-    }
-
-    get outagesKey() {
-        return `${this.id}:${this.outagesKeySuffix}`;
-    }
-
-    get latencyKey() {
-        return `${this.id}:${this.latencyKeySuffix}`;
-    }
-
-    get failureKey() {
-        return `${this.id}:${this.failureCountKeySuffx}`;
-    }
-}
 
 class RedisPersistence {
     constructor(config) {
@@ -255,6 +198,15 @@ class RedisPersistence {
         });
     }
 
+    /**
+     * 
+     * @param {Object} data 
+     * @param {String} data.id Service id
+     * @param {Number} [timestamp=-inf] Start point for our query
+     * @param {Boolean} aggregatedBy If false we skeep aggregation
+     * @param {String} aggregatedBy Aggregation units: second, minute
+     *                              hour, day, week, month, quarter, year
+     */
     getLatencySince(data, timestamp = '-inf', aggregatedBy = false) {
         let service = new Service(data, this.keySuffix);
 
@@ -419,15 +371,15 @@ class RedisPersistence {
 
 module.exports = RedisPersistence;
 
-let p = new RedisPersistence({
-    host: '192.168.99.100'
-});
+// let p = new RedisPersistence({
+//     host: '192.168.99.100'
+// });
 
 // p.serviceFindAll().then(console.log).catch(console.error)
 
-p.getLatencySince({
-    id: 'ee9dfd64-d5f8-433e-80b3-5630a1d47476',
-}, '-inf', 'hour').then(console.log).catch(console.error);
+// p.getLatencySince({
+//     id: 'ee9dfd64-d5f8-433e-80b3-5630a1d47476',
+// }, '-inf', 'hour').then(console.log).catch(console.error);
 
 // p.getLatency({
 //     id: 'ee9dfd64-d5f8-433e-80b3-5630a1d47476',
