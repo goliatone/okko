@@ -80,9 +80,10 @@ class SchedulerService extends EventEmitter {
                 return console.error('Error getting task: %s', taskId, err);
             }
             const task = new Task({
-                client: this.client
+                serializedTask,
+                client: this.client,
             });
-            task.deserialize(serializedTask);
+            // task.deserialize(serializedTask);
             
             this.emit('scheduler:task:execute', {task});
         });
@@ -109,20 +110,19 @@ class SchedulerService extends EventEmitter {
         
         this.taskFromService(id).then(task => {
             if(task && task.id) {
-                this.emit('scheduler:task:created', {task});
+                this.emit('scheduler:task:created', {task, action: 'evented'});
             }
         });
     }
 
     loadAllServices() {
-        
         // this.client.keys(this.triggerKeys, async (err, result=[]) => {
-        this.client.keys('waterline:service:id:*', async (err, result=[]) => {
-            this.hidrateTasksFromAllServices(result);
+        this.client.keys('waterline:service:id:*', async (err, services=[]) => {
+            this.startTasksFromServices(services);
         });
     }
 
-    hidrateTasksFromAllServices(services = []) {
+    startTasksFromServices(services = []) {
         services.map(waterlineService => {
             //We should be able to get a task id from a waterline record:
             // waterline:service:id:<id> => scheduler:tasks:<id>
@@ -131,19 +131,19 @@ class SchedulerService extends EventEmitter {
              * Retrieve our serialized task for the service id:
              * scheduler:tasks:6
              */
-            this.client.get(taskId, async (err, serialized) => {
+            this.client.get(taskId, async (err, serializedTask) => {
                 if (err) return console.error('Error getting task:', err);
     
                 /**
                  * We don't have a task for the service.
                  * Create one.
                  */
-                if (!serialized) {
+                if (!serializedTask) {
                     console.log('The service "%s" does not have a task. Create it', id);
                     //waterlineService: waterline:service:id:6
                     return this.taskFromService(waterlineService).then(task => {
                         if(task && task.id) {
-                            this.emit('scheduler:task:created', {task});
+                            this.emit('scheduler:task:created', {task, action: 'created'});
                         }
                     });
                 }
@@ -153,12 +153,13 @@ class SchedulerService extends EventEmitter {
                  * Bring it back up and start running
                  * the task.
                  */
-                let service = JSON.parse(serialized);
+                let service = JSON.parse(serializedTask);
     
                 let task = new Task({ 
+                    serializedTask,
                     client: this.client 
                 });
-                task.deserialize(serialized);
+                // task.deserialize(serializedTask);
     
                 try {
                     await task.createIfNew();
@@ -166,7 +167,7 @@ class SchedulerService extends EventEmitter {
                     console.log('ERROR', error);
                 }
 
-                this.emit('scheduler:task:deserialized', {task});   
+                this.emit('scheduler:task:created', {task, action: 'deserialized'});   
             });
         });
     }
