@@ -6,20 +6,9 @@
 
 <script>
     import router from './router';
-
-    import api from './services/api';
-    
-    import Link from './components/Link.html';
+    import Link from './router/Link.html';
     import Footer from './components/Footer.html';
     import Header from './components/Header.html';
-
-    import Home from './pages/Home.html';
-    import ApplicationView from './pages/ApplicationView.html';
-    import ApplicationAdd from './pages/ApplicationAdd.html';
-    import ApplicationEdit from './pages/ApplicationEdit.html';
-
-    window.api = api;
-    window.router = router;
     
     export default {
         oncreate() {
@@ -29,13 +18,8 @@
             router.teardown();
         },
         components: {
-            Home,
-            ApplicationView,
-            ApplicationEdit,
-
             Footer,
             Header,
-            Link
         }
     };
 </script>
