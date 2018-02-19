@@ -29,14 +29,20 @@ function init() {
     loadAllServices();
 }
 
+/** 
+ * We register redis event listeners for
+ * expired keys and updates to any 
+ * waterline:service
+*/
 function subscribeToKeyEvents() {
     console.log('Subscribe to key events...');
 
+    //TODO: Can we listen for _keyevent:0__:scheduler:task:*
     pubsub.subscribe(`__keyevent@0__:expired`);
     pubsub.psubscribe('__key*__:waterline:service:id:*');
 
     pubsub.on('message', onTaskExpired);
-    pubsub.on('pmessage', onServiceCreated);
+    pubsub.on('pmessage', onServiceKeyUpdate);
 }
 
 function loadAllServices() {
@@ -50,6 +56,23 @@ function loadAllServices() {
     });
 }
 
+/**
+ * Redis pub/sub handler. This get's fired
+ * every time a scheduler:task TTL expires.
+ * - We then retrieve the task
+ * - pass it to our service monitor to run 
+ * a probe
+ * - save the task and update TTL
+ * 
+ * TODO: We should get the TTL from the
+ * service monitor, it should compute the
+ * value based on the result. We could have
+ * a regular TTL if OK, and might want to try
+ * again in a shorter period if KO.
+ * 
+ * @param {String} channel String
+ * @param {String} message String
+ */
 function onTaskExpired(channel, message) {
     let taskId = _getTaskId(message);
 
@@ -92,9 +115,17 @@ function onTaskExpired(channel, message) {
     });
 }
 
-function onServiceCreated(channel, message) {
-    //TODO: Ensure this only get's fired when we create a new record.
-    //could it also fire on update??!!
+/**
+ * Triggered by redis key events. 
+ * We relate waterline:service:id to scheduler:task:id
+ * If we updated our waterline service, we update our
+ * corresponding task. If we created a new service
+ * we create a new task.
+ * 
+ * @param {String} channel 
+ * @param {String} message 
+ */
+function onServiceKeyUpdate(channel, message) {
     console.info('-------');
     console.info('pmessage: channel "%s" message: "%s"', channel, message);
 
@@ -144,21 +175,40 @@ function taskFromService(taskId) {
         });
     });
 }
- 
+
+/**
+ * Every time we start up our watcher-service we
+ * should load previous tasks. 
+ * We do so from
+ * waterline:service:id:<id>
+ * 
+ * If the service does not have a related
+ * scheduler:task:<id>
+ * we create it.
+ * 
+ * @param {Array} services List of services
+ */
 function hidrateTasksFromAllServices(services = []) {
     console.log('Hidrating tasks from services...');
 
     services.map(application => {
         //We should be able to get a task id from a waterline record:
-        // waterline:service:id:6 => scheduler:tasks:<id>
+        // waterline:service:id:<id> => scheduler:tasks:<id>
         let id = _makeTaskIdFromRecord(application);
 
         console.log('Looking for task with id "%s"', id);
 
-        //id: scheduler:tasks:6
+        /**
+         * Retrieve our serialized task for the service id:
+         * scheduler:tasks:6
+         */
         client.get(id, async (err, serialized) => {
             if (err) return console.error('Error getting task:', err);
 
+            /**
+             * We don't have a task for the service.
+             * Create one.
+             */
             if (!serialized) {
                 console.log('The service "%s" does not have a task. Create it', id);
                 //application: waterline:service:id:6
@@ -196,6 +246,11 @@ function hidrateTasksFromAllServices(services = []) {
                 });
             }
 
+            /**
+             * This service already had a task.
+             * Bring it back up and start running
+             * the task.
+             */
             console.log('The service has a task. Launch it');
 
             let service = JSON.parse(serialized);
