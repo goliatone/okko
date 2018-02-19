@@ -2,6 +2,7 @@
 
 const ServicePingCommand = require('../commands/service.ping');
 const InsightsGetCommand = require('../commands/insights.get');
+const ServiceLatencyCommand = require('../commands/service.id.latency');
 const ServiceIdInsightsCommand = require('../commands/service.id.insights');
 
 /**
@@ -19,6 +20,7 @@ module.exports.attach = function $attach(cli, namespace = false) {
 
     ServicePingCommand.attach(config);
     InsightsGetCommand.attach(config);
+    ServiceLatencyCommand.attach(config);
     ServiceIdInsightsCommand.attach(config);
     
 };
