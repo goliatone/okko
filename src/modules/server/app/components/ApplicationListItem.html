@@ -43,7 +43,7 @@
 
 <script>
     import Keypath from 'gkeypath';
-    import Link from './Link.html';
+    import Link from '../router/Link.html';
     import bus from '../services/dispatcher';
 
     export default {
@@ -66,7 +66,7 @@
                     event.preventDefault();
                 }
                 const appid = this.get('item').id;
-                console.log('action', action);
+
                 switch(action) {
                     case 'edit': 
                         bus.goto(`/application/${appid}/edit`);
