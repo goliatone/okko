@@ -1,126 +1,178 @@
 <:Head>
-    <!-- configuration -->
     <link rel="stylesheet" href="/css/billboard.min.css">
+    <!-- 
+        NOTE: If we remove async it will default to defer, at which 
+        point bb with throw an error.
+        http://www.growingwiththeweb.com/2014/02/async-vs-defer-attributes.html
+     -->
+    <script src="/js/vendors/d3.min.js" on:load="notifyReady(e, 'd3')" async></script>
+    <script src="/js/vendors/billboard.min.js" on:load="notifyReady(e, 'billboard')" async></script>
 </:Head>
 
 <article class="panel-blue panel-3">
-        <div class="chart-bars-2">
-          <p class="chart-bars-2__title">{{title}}</p>
-          <div id="js-chart-probe-latency" class="chart-bars-2__chart"></div>
+    <div class="chart-bars-2">
+        <p class="chart-bars-2__title">{{title}}</p>
+        <div id="js-chart-probe-latency" class="chart-bars-2__chart"></div>
 
-          <div class="chart-bars-2__info row">
+        <div class="chart-bars-2__info row">
             <ul class="row">
-              <li class="chart-bars-2__detail">
-                <p class="chart-bars-2__details-title">Probes</p>
-                <p class="chart-bars-2__details-value">{{probes}}</p>
-              </li>
-              <li class="chart-bars-2__detail">
-                <p class="chart-bars-2__details-title">Mean</p>
-                <p class="chart-bars-2__details-value">{{mean}}</p>
-              </li>
-              <li class="chart-bars-2__detail">
-                <p class="chart-bars-2__details-title">Min</p>
-                <p class="chart-bars-2__details-value">{{min}}</p>
-              </li>
-              <li class="chart-bars-2__detail">
-                <p class="chart-bars-2__details-title">Max</p>
-                <p class="chart-bars-2__details-value">{{max}}</p>
-              </li>
-              <li class="chart-bars-2__detail">
-                <p class="chart-bars-2__details-title">Errors</p>
-                <p class="chart-bars-2__details-value">{{errors}}</p>
-              </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Probes</p>
+                    <p class="chart-bars-2__details-value">{{probes}}</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Mean</p>
+                    <p class="chart-bars-2__details-value">{{mean}}</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Min</p>
+                    <p class="chart-bars-2__details-value">{{min}}</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Max</p>
+                    <p class="chart-bars-2__details-value">{{max}}</p>
+                </li>
+                <li class="chart-bars-2__detail">
+                    <p class="chart-bars-2__details-title">Errors</p>
+                    <p class="chart-bars-2__details-value">{{errors}}</p>
+                </li>
             </ul>
 
             <div class="chart-bars-2__select">
-              <div id="js-probe-latency-select" class="dropdown-container">
-                <button
-                  class="btn btn-sm btn-primary btn-split dropdown-toggle btn-select" role="button">
-                  <span class="js-selection">Hour</span>
-                  <span class="icon-arrow-down">
-                </button>
-                <menu class="dropdown-menu dm-aligned dm-primary">
-                  <ul>
-                    <li data-frequency="hour" class="js-hidden">Hour</li>
-                    <li data-frequency="day">Day</li>
-                    <li data-frequency="week">Week</li>
-                    <li data-frequency="month">Month</li>
-                  </ul>
-                </menu>
-              </div>
+                <div id="js-probe-latency-select" class="dropdown-container">
+                    <button class="btn btn-sm btn-primary btn-split dropdown-toggle btn-select {{dropdown}}" role="button">
+                        <span class="js-selection" ref:lbl>{{selectedLabel}}</span>
+                        <span class="icon-arrow-down" ref:btn></span>
+                    </button>
+                    <menu class="dropdown-menu dm-aligned dm-primary">
+                        <ul>
+                            <li on:click="action(event, 'hour')" class="js-hidden">Hour</li>
+                            <li on:click="action(event, 'day')">Day</li>
+                            <li on:click="action(event, 'week')">Week</li>
+                            <li on:click="action(event, 'month')">Month</li>
+                        </ul>
+                    </menu>
+                </div>
             </div>
-          </div>
         </div>
-      </article>
+    </div>
+</article>
 
 <script>
-    import billboard from '../services/billboard';
+    // import billboard from '../services/billboard';
 
-    window.bb = billboard.bb;
-    window.billboard = billboard;
-    window.d3 = billboard.d3;
+    // window.bb = billboard.bb;
+    // window.billboard = billboard;
+    // window.d3 = billboard.d3;
 
+    let libs = [];
     export default {
-
         oncreate() {
-            const BAR_BG = '#8199ab';
-            const HIGHLIGHT_BG = '#ff206a';
+            libs = [];
+            const { btn, lbl } = this.refs;
 
-            const hour = ['hour', 47, 89, 47, 66, 47, 141, 66, 47, 122, 100, 141, 89, 173, 122,
-            100, 196, 66, 66, 47, 113, 66, 89, 66, 205, 100, 122, 66, 66,
-            47, 66, 100, 205, 66, 141, 89, 152, 47, 66, 152, 141, 47, 66,
-            89, 100,205, 89, 47, 100, 66, 113, 66, 47, 100, 89, 113, 47,
-            66, 100, 47, 113, 100, 89, 47, 66, 47, 89, 66, 89, 100];
+            const activeMenu = (e) => {
+                this.set({
+                    dropdown: (e.target === btn || e.target === lbl) ? 'active' : ''
+                });
+            };
 
-            var chart = bb.generate({
-                data: {
-                    columns: [hour],
-                    type: 'bar',
-                    // set bars fill color
-                    colors: { data: BAR_BG },
-                    // set fill color for max values in chart
-                    onmax: function (data) {
-                        data.forEach(function (v) {
-                            let max_el = d3.select("#js-chart-probe-latency .bb-shapes-" + v.id + " .bb-bar-" + v.index);
-                            max_el.style('fill', HIGHLIGHT_BG);
-                        });
-                    }
-                },
-                axis: {
-                    // hide axis
-                    x: {
-                        show: false
-                    },
-                    y: {
-                        show: false,
-                        // set y axis range
-                        min: 0,
-                        max: 165,
-                        // padding: 0
-                    }
-                },
-                grid: {
-                    y: {
-                        show: true,
-                        lines: true
-                    },
-                    lines: { front: true }
-                },
-                legend: { show: false}, // hide legend
-                bar: {
-                    width: { ratio: 0.35 }
-                },
-                bindto: '#js-chart-probe-latency'
+            this.on('destroy', () => {
+                document.removeEventListener('click', activeMenu);
             });
-            
-            window.chart = chart;
+
+            document.addEventListener('click', activeMenu);
+        },
+        
+        methods: {
+            notifyReady(event, lib){
+                console.log('ready', lib);
+                libs.push(lib);
+                if(libs.length === 2) this.createChart();
+            },
+            createChart() {
+                console.log('d3', window.d3, 'bb', window.bb);
+
+                const BAR_BG = '#8199ab';
+                const HIGHLIGHT_BG = '#ff206a';
+
+                const hour = ['hour', 47, 89, 47, 66, 47, 141, 66, 47, 122, 100, 141, 89, 173, 122,
+                    100, 196, 66, 66, 47, 113, 66, 89, 66, 205, 100, 122, 66, 66,
+                    47, 66, 100, 205, 66, 141, 89, 152, 47, 66, 152, 141, 47, 66,
+                    89, 100, 205, 89, 47, 100, 66, 113, 66, 47, 100, 89, 113, 47,
+                    66, 100, 47, 113, 100, 89, 47, 66, 47, 89, 66, 89, 100];
+
+                const chart = bb.generate({
+                    data: {
+                        columns: [hour],
+                        type: 'bar',
+                        // set bars fill color
+                        colors: { data: BAR_BG },
+                        // set fill color for max values in chart
+                        onmax: function (data) {
+                            data.forEach(function (v) {
+                                let max_el = d3.select("#js-chart-probe-latency .bb-shapes-" + v.id + " .bb-bar-" + v.index);
+                                max_el.style('fill', HIGHLIGHT_BG);
+                            });
+                        }
+                    },
+                    axis: {
+                        // hide axis
+                        x: {
+                            show: false
+                        },
+                        y: {
+                            show: false,
+                            // set y axis range
+                            min: 0,
+                            max: 165,
+                            // padding: 0
+                        }
+                    },
+                    grid: {
+                        y: {
+                            show: true,
+                            lines: true
+                        },
+                        lines: { front: true }
+                    },
+                    legend: { show: false }, // hide legend
+                    bar: {
+                        width: { ratio: 0.35 }
+                    },
+                    bindto: '#js-chart-probe-latency'
+                });
+
+                window.chart = chart;
+            },
+            action(event, resolution) {
+                if (event && event.preventDefault) {
+                    event.preventDefault();
+                }
+                const item = event.target;
+
+                let lis = item.parentElement.getElementsByTagName('li');
+
+                Array.from(lis).forEach(el => el.classList.remove('js-hidden'));
+                item.classList.add('js-hidden');
+
+                let text = item.textContent;
+
+                this.set({
+                    selectedLabel: text,
+                    selectedTime: resolution
+                });
+            }
         },
         data() {
             return {
+                selectedLabel: 'Hour',
+                selectedTime: 'hour',
+
                 probes: 0,
                 mean: 0,
                 min: 0,
-                max:0,
+                max: 0,
                 errors: 0,
             }
         }
