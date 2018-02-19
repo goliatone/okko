@@ -139,7 +139,7 @@ function taskFromService(taskId) {
 
         client.get(taskId, async (err, service) => {
             if (err) return reject(err);
-            if(!service) return resolve(false);
+            if(!service) return resolve({found: false, id: taskId});
 
             service = JSON.parse(service);
             
@@ -191,18 +191,19 @@ function taskFromService(taskId) {
 function hidrateTasksFromAllServices(services = []) {
     console.log('Hidrating tasks from services...');
 
-    services.map(application => {
+    services.map(waterlineService => {
         //We should be able to get a task id from a waterline record:
         // waterline:service:id:<id> => scheduler:tasks:<id>
-        let id = _makeTaskIdFromRecord(application);
-
-        console.log('Looking for task with id "%s"', id);
+        let taskId = _makeTaskIdFromRecord(waterlineService);
+        console.log('make task id from record: %s', waterlineService);
+        console.log('Looking for task with id "%s"', taskId);
+        console.log('---');
 
         /**
          * Retrieve our serialized task for the service id:
          * scheduler:tasks:6
          */
-        client.get(id, async (err, serialized) => {
+        client.get(taskId, async (err, serialized) => {
             if (err) return console.error('Error getting task:', err);
 
             /**
@@ -211,14 +212,15 @@ function hidrateTasksFromAllServices(services = []) {
              */
             if (!serialized) {
                 console.log('The service "%s" does not have a task. Create it', id);
-                //application: waterline:service:id:6
-                return client.get(application, async (err, service) => {
+                //waterlineService: waterline:service:id:6
+                return client.get(waterlineService, async (err, service) => {
                     if (err){
                         return console.error('Error retriving service info.', err);
                     }
                         
                     service = JSON.parse(service);
                     // let {data} = record.data;
+                    console.log('======')
                     console.log('Service ID:', service.id);
                     console.log(service);
                     console.log();
@@ -290,6 +292,7 @@ function _makeTaskIdFromRecord(message) {
     return `scheduler:tasks:${id}`;
 }
 
+/////////////////////////////////////////////
 const request = require('request-promise');
 class Command extends Task {
     execute() {
