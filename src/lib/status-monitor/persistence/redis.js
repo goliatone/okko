@@ -2,7 +2,7 @@
 const uuid = require('uuid');
 const extend = require('gextend');
 
-const Service = require('./Service');
+const TaskService = require('./Service');
 
 const defaults = {
     keySuffix: {
@@ -57,7 +57,7 @@ class RedisPersistence {
 
     serviceCreate(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(this.keySuffix);
+            let service = new TaskService(this.keySuffix);
             service.setData(data);
 
             const multi = this.client.multi();
@@ -73,7 +73,7 @@ class RedisPersistence {
 
     serviceUpdate(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(this.keySuffix);
+            let service = new TaskService(this.keySuffix);
             service.setData(data);
 
             const multi = this.client.multi();
@@ -95,7 +95,7 @@ class RedisPersistence {
         }
 
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
             console.log('service.primaryKey', service.primaryKey);
             this.client.get(service.primaryKey, (err, result) => {
                 if (err) return reject(err);
@@ -109,7 +109,7 @@ class RedisPersistence {
 
     serviceFindAll() {
         return new Promise((resolve, reject) => {
-            let service = new Service(this.keySuffix);
+            let service = new TaskService(this.keySuffix);
 
             this.client.smembers(service.servicesKey, (err, ids) => {
                 if (err) return reject(err);
@@ -129,7 +129,7 @@ class RedisPersistence {
 
     serviceDelete(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
 
             const multi = this.client.multi();
 
@@ -154,7 +154,7 @@ class RedisPersistence {
 
     serviceReset(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
 
             const multi = this.client.multi();
 
@@ -175,7 +175,7 @@ class RedisPersistence {
     }
 
     resetOutageFailureCount(data) {
-        let service = new Service(data, this.keySuffix);
+        let service = new TaskService(data, this.keySuffix);
 
         return new Promise((resolve, reject) => {
             this.client.del(service.failureKey, err => {
@@ -186,7 +186,7 @@ class RedisPersistence {
     }
 
     saveLatency(data, probe) {
-        let service = new Service(data, this.keySuffix);
+        let service = new TaskService(data, this.keySuffix);
 
         const timestamp = probe.startTime;
         const range = timestamp + ':' + probe.elapsedTime;
@@ -201,14 +201,14 @@ class RedisPersistence {
     /**
      * 
      * @param {Object} data 
-     * @param {String} data.id Service id
+     * @param {String} data.id TaskService id
      * @param {Number} [timestamp=-inf] Start point for our query
      * @param {Boolean} aggregatedBy If false we skeep aggregation
      * @param {String} aggregatedBy Aggregation units: second, minute
      *                              hour, day, week, month, quarter, year
      */
     getLatencySince(data, timestamp = '-inf', aggregatedBy = false) {
-        let service = new Service(data, this.keySuffix);
+        let service = new TaskService(data, this.keySuffix);
 
         return new Promise((resolve, reject) => {
             this.client.zrevrangebyscore( service.latencyKey, '+inf', timestamp, 'withscores', (err, data) => {
@@ -240,7 +240,7 @@ class RedisPersistence {
 
     archiveCurrentOutageIfExists(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
 
             this.getCurrentOutage(service).then(outage => {
                 if (outage) {
@@ -266,7 +266,7 @@ class RedisPersistence {
     }
 
     getServiceOutagesSince(data, timestamp) {
-        let service = new Service(data, this.keySuffix);
+        let service = new TaskService(data, this.keySuffix);
         // service.setData(data);
 
         return new Promise((resolve, reject) => {
@@ -283,7 +283,7 @@ class RedisPersistence {
     }
 
     increaseFailureCount(data) {
-        let service = new Service(data, this.keySuffix);
+        let service = new TaskService(data, this.keySuffix);
         // service.setData(data);
 
         return new Promise((resolve, reject) => {
@@ -296,7 +296,7 @@ class RedisPersistence {
 
     getCurrentOutage(data) {
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
             // service.setData(data);
 
             this.client.get(service.currentOutageKey, (err, result) => {
@@ -308,7 +308,7 @@ class RedisPersistence {
 
     startOutage(data, outage) {
         return new Promise((resolve, reject) => {
-            let service = new Service(data, this.keySuffix);
+            let service = new TaskService(data, this.keySuffix);
             // service.setData(data);
 
             if (!outage.timestamp) {
