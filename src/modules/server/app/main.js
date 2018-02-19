@@ -4,11 +4,23 @@ import App from './Application.html';
 import store from './models/RootStore';
 import api from './services/api';
 import bus from './services/dispatcher';
-// import history from './services/history';
 import router from './router';
 
-import {ApplicationCollection} from './models/ApplicationCollection';
+// import io from 'socket.io-client';
 
+const socket = io();
+socket.on('connect', function(){
+    console.info('connected');
+
+    socket.on('message', function(payload){
+        console.warn('Message', payload);
+    });
+
+    socket.on('status.update', (event)=> {
+        console.log('status.update', event);
+    });
+});
+window.socket = socket;
 
 const states = bus.EVENT_TYPES;
 
@@ -103,7 +115,7 @@ bus.handle(states.APPLICATION_UPDATE, data => {
         return out;
     }
 
-    const promise = api.updateApplication(data.id, getAttributes(data.application));
+    const promise = api.updateApplication(data.application.id, getAttributes(data.application));
 
     promise.then(application => {
         bus.goto(`/application/${application.id}`);
@@ -135,13 +147,22 @@ bus.handle(states.APPLICATION_PAUSE, data => {
 
 const app = new App({
     //this breaks the layout, it does not support being wrapped by div
-    // target: document.querySelector('#wrapper')
+    // target: document.querySelector('#wrapper'),
     target: document.getElementsByTagName('body')[0],
     store: () => store,
 });
 
 window.app = app;
 window.bus = bus;
+window.api = api;
+window.router = router;
 window.rootStore = store;
-window.ApplicationCollection = ApplicationCollection;
-window.hs = history;
+
+
+if (process.env.NODE_ENV !== 'production') {
+    // Enable LiveReload
+    const host = (location.host || 'localhost').split(':')[0];
+    document.write(`<script src="http://${host}:35729/livereload.js?snipver=1"></script>`);
+}
+
+console.log('NODE_ENV', process.env.NODE_ENV);
