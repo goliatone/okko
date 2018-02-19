@@ -45,27 +45,39 @@ class SchedulerService extends EventEmitter {
 
     handlePmessage(channel, message) {
         const id = this._getIdFromMessage(message);
-        this.client.get(id, async (err, record)=>{
-            if(err) return console.error('error', err);
+        
+        this.client.get(id, async (err, record) => {
+
+            if(err) {  
+                return console.error('error', err);
+            }
 
             record = JSON.parse(record);
+
             let task = new Task({
                 client: this.client,
-            })
-        })
+            });
+        });
     }
 
     loadTriggerKeys() {
         
         this.client.keys(this.triggerKeys, async (err, result=[]) => {
+            
             result.map( resource => {
-                let id = this._makeTaskIdFromResource(resource);
+                
+                const id = this._makeTaskIdFromResource(resource);
+
                 this.client.get(id, async (err, serialized) => {
-                    if(err) return console.error('Error', err);
+                    if(err){ 
+                        return console.error('Error', err);
+                    }
+
                     if(!serialized) return this.createTaskFromResource(resource);
 
-                    let record = JSON.parse(serialized);
-                    let task = new Task({client: this.client});
+                    const record = JSON.parse(serialized);
+
+                    const task = new Task({client: this.client});
                     task.deserialize(serialized);
 
                     try {
@@ -79,16 +91,16 @@ class SchedulerService extends EventEmitter {
     }
 
     createTaskFromResource(resource) {
-        let id = this._getIdFromResource(resource);
+        const id = this._getIdFromResource(resource);
 
-        return new Promise((resolve, reject)=>{
+        return new Promise((resolve, reject) => {
 
             this.client.get(resource, async (err, record) => {
                 if(err) return reject(err);
 
                 record = JSON.parse(record);
 
-                let task = new Task({
+                const task = new Task({
                     client: this.client,
                     ttl: 2 * 1000,
                     data: record,
@@ -110,7 +122,7 @@ class SchedulerService extends EventEmitter {
     }
 
     _getTaskId(message) {
-        let match = message.match(/^(scheduler:tasks:\w+):ttl$/);
+        const match = message.match(/^(scheduler:tasks:\w+):ttl$/);
         if(!match) return false;
         return match[1];
     }
@@ -123,8 +135,8 @@ class SchedulerService extends EventEmitter {
     }
 
     _makeTaskIdFromResource(resource) {
-        let match = message.match(this.resourceRegex);
-        let id = match[1];
+        const match = message.match(this.resourceRegex);
+        const id = match[1];
         return `scheduler:tasks:${id}`;
     }
 }
