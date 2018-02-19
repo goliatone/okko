@@ -22,7 +22,7 @@ class Insights {
     getServices() {
 
         return this.storage.serviceFindAll().then(services => {
-            let out = services.map((service)=>{
+            const out = services.map(service => {
                 return this.getGeneralServiceInfo(service);
             });
             return Promise.all(out);
@@ -33,7 +33,7 @@ class Insights {
         console.log('getService', id);
 
         return this.storage.serviceFindOne(id).then(async (service) => {
-            let info = await this.getGeneralServiceInfo(service);
+            const info = await this.getGeneralServiceInfo(service);
 
             if(!info) return;
 
