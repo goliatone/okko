@@ -25,7 +25,6 @@ export class ApplicationModel  {
     }
 
     fromVO(vo) {
-        console.log('create ApplicationModel:', vo);
         extend(this, vo);
     }
 
