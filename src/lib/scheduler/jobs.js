@@ -3,7 +3,7 @@
 const extend = require('gextend');
 const Task = require('./task');
 const serviceFactory = require('./factory');
-const MonitorService = require('../status-monitor/service');
+const MonitorService = require('../status-monitor/service');    
 
 
 const client = serviceFactory({
@@ -223,7 +223,7 @@ function hidrateTasksFromAllServices(services = []) {
                     console.log('======')
                     console.log('Service ID:', service.id);
                     console.log(service);
-                    console.log();
+                    console.log('-----\n');
 
                     let task = new Task({
                         client,
@@ -257,6 +257,10 @@ function hidrateTasksFromAllServices(services = []) {
 
             let service = JSON.parse(serialized);
             console.log('Task %s: %s\n', service.id, service.key);
+            console.log('======')
+            console.log('Service ID:', service.id);
+            console.log(service);
+            console.log('-----\n');
 
             let task = new Task({ client });
             task.deserialize(serialized);
