@@ -179,7 +179,7 @@ function initialize(router, config) {
                     value: result
                 });
             }
-        }).catch(next);
+        });
     });
 
     router.get('/service/:id/insights', function getInsightsFor(req, res, next){
@@ -195,7 +195,7 @@ function initialize(router, config) {
                     value: result
                 });
             }
-        }).catch(next);
+        });
     });
 
     router.get('/service/:id/latency', function getLatencyFor(req, res, next){
@@ -211,7 +211,7 @@ function initialize(router, config) {
                     value: result
                 });
             }
-        }).catch(next);
+        });
     });
 
     return router;
