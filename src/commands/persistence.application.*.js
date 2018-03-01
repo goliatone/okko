@@ -3,6 +3,7 @@ const extend = require('gextend');
 const Keypath = require('gkeypath');
 
 class PersistenceApplicationCommand {
+    
     execute(event) {
         const { action, identity, record, context } = event;
         const Service = context.models.Service;
@@ -50,20 +51,18 @@ class PersistenceApplicationCommand {
              * Check to see if we have a Service for this application.
              */
 
-            return Service.find({ application: record.id }).then(
-                (services = []) => {
-                    /*
+            return Service.find({ application: record.id }).then((services = []) => {
+                /*
                  * if we do, set active=false.
                  */
-                    if (services.length === 0) return;
+                if (services.length === 0) return;
 
-                    services.map(item => {
-                        return item.id;
-                    });
+                services.map(item => {
+                    return item.id;
+                });
 
-                    return Service.update(services, { active: false });
-                }
-            );
+                return Service.update(services, { active: false });
+            });
         }
 
         /*
