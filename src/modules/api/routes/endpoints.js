@@ -52,6 +52,7 @@ function initialize(router, config) {
                     'registered app with identifier %s',
                     result.identifier
                 );
+                
                 res.send({
                     success: true,
                     value: {

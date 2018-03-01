@@ -24,6 +24,10 @@ window.socket = socket;
 
 const states = bus.EVENT_TYPES;
 
+bus.requestLatencyFor = (data) => {
+    bus.dispatch(states.REQUEST_LATENCY, data);
+};
+
 bus.requestCompiledData = () => {
     bus.dispatch(states.REQUEST_COMPILE_DATA);
 };
@@ -66,6 +70,18 @@ bus.handle(states.REQUEST_APPLICATION_ID, data => {
         store.set({application});
     });
     store.set({application: promise});
+});
+
+bus.handle(states.REQUEST_LATENCY, data => {
+    console.log('REQUEST_LATENCY', data);
+    const promise = api.getLatencyData(data.appId, data.interval);
+    
+    promise.then(latencyData => {
+        console.log('latencyData', latencyData);
+        store.set({latencyData});
+    });
+
+    store.set({latencyData: promise});
 });
 
 bus.handle(states.NAVIGATION_GOTO, data => {
