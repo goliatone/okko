@@ -1,0 +1,66 @@
+<div id="editor">
+    <div ref:field class="form-group">
+        <label for="upadted">Attribute</label>
+        <input name="value" value="key" type="text">
+        <input name="value" value="{{attributeType}}" type="text">
+        <select bind:value="attributeType" name="type">
+            <option value="primitive" selected>Primitive</option>
+            <option value="array">Array</option>
+            <option value="object">Object</option>
+        </select>
+        <button on:click="addAttribute(event)" class="btn-add">+</button>
+    </div>
+    {{#if attributeType === 'array'}}
+    <div class="form-group">
+        <label for="upadted">Array Item</label>
+        <input value="" type="text">
+    </div>
+    {{elseif attributeType === 'object'}}
+    <div class="form-group">
+        <label for="upadted">Object Key</label>
+        <input value="" type="text">
+        <label for="upadted">Object Value</label>
+        <input value="" type="text">
+    </div>
+    {{else}} .. {{/if}}
+</div>
+
+<style>
+    #editor {
+        padding-top: 30px;
+        margin-top: 45px;
+        border-top: 1px gray dashed;
+    }
+    .btn-add {
+        width: 30px;
+        height: 30px;
+        text-align: center;
+        padding: 6px 0;
+        font-size: 12px;
+        line-height: 1.42;
+        border-radius: 15px;
+        margin-top: 4px;
+        background-color: aquamarine;
+        cursor: pointer;
+    }
+</style>
+<script>
+    function prevent(event) {
+        if (event && event.preventDefault) {
+            event.preventDefault();
+        }
+    }
+
+    export default {
+        methods: {
+            addAttribute(event) {
+                prevent(event);
+                const field = this.refs.field;
+                window.field = field;
+                console.log('addAttribute');
+                field.getElementsByTagName('input')[0].value
+                field.getElementsByTagName('select')[0].value
+            },
+        }
+    }
+</script>
