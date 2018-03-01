@@ -59,6 +59,22 @@
             window.page = this;
         },
         methods: {
+            _show(){
+                return new Promise((resolve, reject)=>{
+                    console.log('Show!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
+            _hide() {
+                return new Promise((resolve, reject)=> {
+                    console.log('Hide!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
             addApplication() {
                 console.log('message')
             }
