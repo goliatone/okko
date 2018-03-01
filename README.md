@@ -17,6 +17,17 @@ The registry provides Application information to different clients. The specific
 
 
 
+Application > MonitorService(Service) > TaskRunner(Task) > Probe(TaskService)
+
+Monitor Service:
+
+There are two ways we can create a service monitor for an application:
+
+* through the web front-end
+* applications that have a health attribute when they POST `/api/register`.
+
+Usually an Application would have 0/1 services. In some cases we might want to monitor more than one end-point or monitor different transports (mqtt, http).
+
 ## License
 ® License MIT by goliatone
 
