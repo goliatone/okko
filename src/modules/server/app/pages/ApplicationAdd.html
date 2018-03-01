@@ -60,7 +60,7 @@
     import bus from '../services/dispatcher';
 
     export default {
-        oncreate(){
+        oncreate() {
             this.observe('identity', (value, old) => {
                 let item = this.get('item');
                 item.identifier = value;
@@ -74,6 +74,22 @@
             }
         },
         methods: {
+            _show(){
+                return new Promise((resolve, reject)=>{
+                    console.log('Show!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
+            _hide() {
+                return new Promise((resolve, reject)=> {
+                    console.log('Hide!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
             cancel(event, path=false) {
                 if (event && event.preventDefault) {
                     event.preventDefault();
