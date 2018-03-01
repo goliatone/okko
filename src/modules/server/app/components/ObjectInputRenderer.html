@@ -1,0 +1,38 @@
+{{#each attributes as attr}}
+<div class="form-group">
+    <label for="upadted">{{attr.key}}</label>
+    <input value="{{attr.value}}" type="text">
+</div>
+{{/each}}
+
+<script>
+    export default {
+        methods: {
+            setAttributes(data={}) {
+                let attributes = this.get('attributes') || {};
+                
+                function parseKeys(obj, path=[]) {
+                    Object.keys(obj).forEach(key => {
+                        
+                        let value = obj[key];
+                        
+                        if(typeof value === 'object') {
+                            console.log('key', key)
+                            return parseKeys(value, path);
+                        }
+                        // path.push(key);
+                        
+                        attributes.push({
+                            key: key, 
+                            value
+                        });
+                    });
+                    path = [];
+                }
+                parseKeys(data);
+
+                this.set({attributes});
+            },
+        }
+    }
+</script>
