@@ -36,7 +36,10 @@ export default {
 		babel({
 			exclude: 'node_modules/**',
 			include: ['./modules/server/app/**/*.js'],
-			compact: false
+			compact: false,
+			plugins: ['babel-plugin-transform-builtin-extend', {
+				globals: ['Array']
+			}]
 		}),
 		replace({
 			'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
@@ -48,6 +51,7 @@ export default {
 			open: true
 			})
 			: {},
-		dev ? livereload() : {}
+		// dev ? livereload() : {}
+		livereload()
 	]
 };
