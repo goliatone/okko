@@ -108,6 +108,17 @@ function getInsightsFor(application) {
     });
 }
 
+function getLatencyData(id, interval='hour') {
+    // let serviceId = service.findBy({application: id});
+    id = 'afc4ea21-c148-4dcc-b3b6-974c07b69bcb'
+    return fetch(`/api/service/${id}/latency?interval=${interval}`)
+        then(res =>{ 
+            let out = res.json();
+            console.log('out', out);
+            return out;
+        });
+}
+
 function buildApplicationInsights() {
     let data = [];
     let services = getServices();
@@ -138,6 +149,7 @@ function buildApplicationInsights() {
 }
 
 export default {
+    getLatencyData,
     getInsights,
     getApplication,
     getApplications,

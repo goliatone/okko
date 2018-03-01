@@ -102,6 +102,12 @@ const createRouter = routes => {
         //     }
         // }
 
+        // if(content) {
+        //     let done = content._hide ? content._hide() : Promise.resolve();
+        //     done.then(()=>{
+        //         if (content.teardown) content.teardown();
+        //     });
+        // }
         if (content && content.teardown) content.teardown();
 
         for (let i = 0; i < routeData.length; i += 1) {
