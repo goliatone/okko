@@ -83,7 +83,6 @@ class SchedulerService extends EventEmitter {
                 serializedTask,
                 client: this.client,
             });
-            // task.deserialize(serializedTask);
             
             this.emit('scheduler:task:execute', {task});
         });
@@ -153,13 +152,10 @@ class SchedulerService extends EventEmitter {
                  * Bring it back up and start running
                  * the task.
                  */
-                let service = JSON.parse(serializedTask);
-    
                 let task = new Task({ 
                     serializedTask,
                     client: this.client 
                 });
-                // task.deserialize(serializedTask);
     
                 try {
                     await task.createIfNew();
