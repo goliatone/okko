@@ -8,7 +8,7 @@
 </header>
 
 
-<Chart title="Probe Latency" />
+<Chart ref:chart title="Probe Latency" />
 
 <div class="layout-w">
 
@@ -125,9 +125,23 @@
              * TODO: We should do this in our navigation
              * step, so when it gets here is already 
              * loaded(?)
+             * 
+             * appid is an argument that the router
+             * populates when creating the component
+             * instance, we get it from the URL.
              */
-            const appid = this.get('appid');
-            bus.requestApplicationById(appid);
+            const appId = this.get('appid');
+            bus.requestApplicationById(appId);
+
+            const chart = this.refs.chart;
+
+            chart.observe('selectedTime', (interval) => {
+                if(!interval) return;
+                bus.requestLatencyFor({
+                    appId,
+                    interval,
+                });
+            });
 
             // this.store.observe('application', (app)=>{
             //     if(!app) return console.log('boooooo');
@@ -142,6 +156,22 @@
             Chart,
         },
         methods: {
+            _show(){
+                return new Promise((resolve, reject)=>{
+                    console.log('Show!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
+            _hide() {
+                return new Promise((resolve, reject)=> {
+                    console.log('Hide!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
             select(section) {
 			  this.set({selected:section});
 			},
