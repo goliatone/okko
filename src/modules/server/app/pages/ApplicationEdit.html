@@ -53,16 +53,9 @@
 
             <h2>Metadata</h2>
             <article class="panel-white panel-1">
-                {{#each attributes as attr}}
-                <div class="form-group">
-                    <label for="upadted">{{attr.key}}</label>
-                    <input value="{{attr.value}}" type="text">
-                </div>
-                {{/each}}
-                <div class="form-group">
-                    <label for="upadted">Attribute</label>
-                    <input value="" type="text">
-                </div>
+                <ObjectRenderer ref:renderer attributes="{{attributes}}" />
+                
+                <ObjectEditor ref:editor data="{{data}}" />
             </article>
     </section>
     <section id="services" class="{{active(selected, 'services')}}">
@@ -108,12 +101,14 @@
 
 <style>
     .visible {display:inherit;}
-	.hidden {display:none;}
+    .hidden {display:none;}
 </style>
 
 <script>
     import bus from '../services/dispatcher';
     import store from '../models/RootStore';
+    import ObjectEditor from '../components/ObjectEditor.html'
+    import ObjectRenderer from '../components/ObjectInputRenderer.html'
 
     function prevent(event){
         if(event && event.preventDefault) {
@@ -127,12 +122,14 @@
             const appid = this.get('appid');
             bus.requestApplicationById(appid);
 
+            const renderer = this.refs.renderer;
+
             const setApp = this.store.observe('application', (app) => {
                 if(typeof app.then === 'function') {
                     return;
                 }
 
-                this.setAttributes(app.data);
+                renderer.setAttributes(app.data);
 
                 setApp.cancel();
             });
@@ -140,35 +137,26 @@
             window.page = this;
         },
         methods: {
+            _show(){
+                return new Promise((resolve, reject)=>{
+                    console.log('Show!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
+            _hide() {
+                return new Promise((resolve, reject)=> {
+                    console.log('Hide!!!!');
+                    setTimeout(()=>{
+                        console.log('Done!')
+                    }, 1000);
+                });
+            },
             select(section) {
                 //this should update #
                 this.set({ selected: section });
 			},
-            setAttributes(data={}) {
-                let attributes = this.get('attributes') || {};
-                
-                function parseKeys(obj, path=[]) {
-                    Object.keys(obj).forEach(key => {
-                        
-                        let value = obj[key];
-                        
-                        if(typeof value === 'object') {
-                            console.log('key', key)
-                            return parseKeys(value, path);
-                        }
-                        // path.push(key);
-                        
-                        attributes.push({
-                            key: key, 
-                            value
-                        });
-                    });
-                    path = [];
-                }
-                parseKeys(data);
-
-                this.set({attributes});
-            },
             submit(event) {
                 prevent(event);
                 //TODO: Track changeset and send that.
@@ -217,6 +205,10 @@
                 },
                 attributes: []
             }
+        },
+        components: {
+            ObjectEditor,
+            ObjectRenderer,
         }
     }
 </script>
