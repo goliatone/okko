@@ -8,7 +8,7 @@ const resolve = require('path').resolve;
 
 module.exports = {
     banner,
-    name: 'core.io-registry',
+    name: process.env.NODE_APP_NAME,
     basepath: resolve('./'),
     environment: process.env.NODE_ENV || 'development',
     registry: false
