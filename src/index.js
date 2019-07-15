@@ -18,3 +18,12 @@ let app = new Application({
 app.once('modules.ready', () => {
     app.run();
 });
+
+app.once('modules.resolved', _ => {
+    const style = {
+        __meta__: {
+            style: 'bold+white+magenta_bg'
+        }
+    };
+    app.logger.info('Server available at "%s:%s"', app.server.config.host, app.server.config.port, style);
+});

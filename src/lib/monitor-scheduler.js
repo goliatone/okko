@@ -3,37 +3,39 @@
 const MonitorService = require('./status-monitor/service');
 const SchedulerService = require('./scheduler/service');
 
+const serverIP = process.env.NODE_REDIS_IP || '192.168.99.100';
+
 let monitor = new MonitorService({
     persistenceOptions: {
-        host: '192.168.99.100'
+        host: serverIP
     }
 });
 
 let scheduler = new SchedulerService({
     serviceOptions: {
-        host: '192.168.99.100'
+        host: serverIP
     }
-});    
+});
 
-scheduler.on('scheduler:task:created', ({task}) => {
+scheduler.on('scheduler:task:created', ({ task }) => {
     console.log('scheduler task created', task.id);
     console.log(task.data);
     console.log('====\n');
 
-    if(task.exists) {
+    if (task.exists) {
         monitor.persistence.serviceUpdate(task.data);
     } else {
         monitor.persistence.serviceCreate(task.data);
     }
 });
 
-scheduler.on('scheduler:task:execute', async ({task}) => {
+scheduler.on('scheduler:task:execute', async({ task }) => {
     console.log('scheduler task execute', task.id);
     console.log(task.data);
     console.log('====\n');
 
     try {
-        await monitor.probe(task.data); 
+        await monitor.probe(task.data);
     } catch (error) {
         console.error('ERROR: Executing task %s', task.id);
         console.error(error.message);
