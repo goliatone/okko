@@ -28,6 +28,35 @@ There are two ways we can create a service monitor for an application:
 
 Usually an Application would have 0/1 services. In some cases we might want to monitor more than one end-point or monitor different transports (mqtt, http).
 
+
+### Development 
+
+Fastest way to start is by using docker
+
+#### MQTT
+
+```
+docker run --name vernemq1 \
+  -p 1883:1883 \
+  -p 8888:8888 \
+  -p 9001:9001 \
+  -e "DOCKER_VERNEMQ_ALLOW_ANONYMOUS=on" \
+  -e "DOCKER_VERNEMQ_USER_ROOT=root" \
+  -d erlio/docker-vernemq
+```
+
+Access container:
+
+```
+$ docker exec -ti e753d1c7ff1c /bin/bash 
+```
+
+Inside your container you have access to `vmq-admin`:
+
+```
+$ vmq-admin set allow_anonymous=on
+```
+
 ## License
 ® License MIT by goliatone
 
