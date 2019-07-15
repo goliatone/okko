@@ -11,19 +11,20 @@ class InsightsGetCommand extends CoreCommand {
 
         logger.info('Insights generate');
 
+        const serverIP = process.env.NODE_REDIS_IP || '192.168.99.100';
         const storage = new RedisStorage({
-            host: '192.168.99.100'
+            host: serverIP
         });
 
         const insights = new Insights({
             storage
         });
 
-        return insights.getServices().then((out) => {
+        return insights.getServices().then(out => {
             console.log(JSON.stringify(out, null, 4));
             //This should be handled by base command.
-            
-            if(event.respondTo) {
+
+            if (event.respondTo) {
                 event.respondTo(null, out);
             }
 
