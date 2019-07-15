@@ -9,23 +9,23 @@ class ServiceIdInsightsCommand extends CoreCommand {
         const logger = context.getLogger('service id insights');
 
         const id = event.id;
-        
+
         logger.info('Get insights for service: %s', id);
 
-
+        const serverIP = process.env.NODE_REDIS_IP || '192.168.99.100';
         const storage = new RedisStorage({
-            host: '192.168.99.100'
+            host: serverIP
         });
 
         const insights = new Insights({
             storage
         });
 
-        return insights.getService({id}).then((out) => {
+        return insights.getService({ id }).then((out) => {
             console.log(JSON.stringify(out, null, 4));
             //This should be handled by base command.
-            
-            if(event.respondTo) {
+
+            if (event.respondTo) {
                 event.respondTo(null, out);
             }
 
@@ -35,7 +35,7 @@ class ServiceIdInsightsCommand extends CoreCommand {
 
     static describe(prog, cmd) {
         cmd.argument(
-            '<id>', 
+            '<id>',
             'Service id'
         );
     }
