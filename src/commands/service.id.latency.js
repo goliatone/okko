@@ -13,16 +13,16 @@ class ServiceIdLatencyCommand extends CoreCommand {
 
         logger.info('Get latency for service %s at interval %s', id, interval);
 
-
+        const serverIP = process.env.NODE_REDIS_IP || '192.168.99.100';
         const storage = new RedisPersistence({
-            host: '192.168.99.100'
+            host: serverIP
         });
 
-        return storage.getLatencySince({id}, '-inf', interval).then(out => {
+        return storage.getLatencySince({ id }, '-inf', interval).then(out => {
             console.log(JSON.stringify(out, null, 4));
             //This should be handled by base command.
-            
-            if(event.respondTo) {
+
+            if (event.respondTo) {
                 event.respondTo(null, out);
             }
 
@@ -32,12 +32,12 @@ class ServiceIdLatencyCommand extends CoreCommand {
 
     static describe(prog, cmd) {
         cmd.argument(
-            '<id>', 
+            '<id>',
             'Service id'
         );
 
         cmd.option(
-            '--interval <slice>', 
+            '--interval <slice>',
             'Aggregate interval <slice> that will partition our aggregates.'
         );
     }
