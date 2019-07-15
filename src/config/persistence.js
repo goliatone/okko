@@ -15,19 +15,19 @@ module.exports = {
                 // adapter: 'disk'
                 adapter: 'redis',
                 port: 6379,
-                host: '192.168.99.100',
+                host: process.env.NODE_REDIS_IP || '192.168.99.100',
                 password: null,
                 database: null,
                 options: {
-                
+
                     // low-level configuration
                     // (redis driver options)
                     parser: 'hiredis',
-                    return_buffers: false,
-                    detect_buffers: false,
-                    socket_nodelay: true,
-                    no_ready_check: false,
-                    enable_offline_queue: true
+                    'return_buffers': false,
+                    'detect_buffers': false,
+                    'socket_nodelay': true,
+                    'no_ready_check': false,
+                    'enable_offline_queue': true
                 }
             },
             staging: {
