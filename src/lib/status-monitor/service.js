@@ -46,11 +46,11 @@ class StatusMonitorService extends EventEmitter {
             this.loadServiceExtension(filepath);
         });
 
-        if(this.shouldLoadMonitors) {
+        if (this.shouldLoadMonitors) {
             this.loadPluginTransportMonitors();
         }
 
-        if(this.shouldLoadExtensions) {
+        if (this.shouldLoadExtensions) {
             this.loadPluginServiceExtensions();
         }
     }
@@ -113,9 +113,9 @@ class StatusMonitorService extends EventEmitter {
             }
 
             this.emit('monitor.service.ok', event);
-        /*
-         * KO! check went but...
-         */
+            /*
+             * KO! check went but...
+             */
         } else {
             const currentFailureCount = await persistence.increaseFailureCount(service);
 
@@ -126,7 +126,7 @@ class StatusMonitorService extends EventEmitter {
             });
 
             let outage = await persistence.getCurrentOutage(service);
-            
+
             if (outage) {
                 /**
                  * This service was already down...
@@ -197,7 +197,7 @@ class StatusMonitorService extends EventEmitter {
     loadPlugins(prefix, callback) {
         let result = getPackage.sync();
         let { dependencies } = result.pkg;
-        
+
         Object.keys(dependencies).map(dep => {
             if (dep.indexOf(prefix) === 0) {
                 callback(dep);
