@@ -3,7 +3,7 @@ const extend = require('gextend');
 const Keypath = require('gkeypath');
 
 class PersistenceApplicationCommand {
-    
+
     execute(event) {
         const { action, identity, record, context } = event;
         const Service = context.models.Service;
@@ -24,11 +24,11 @@ class PersistenceApplicationCommand {
         });
 
         context.io.emit('status.update', {
-            topic, 
+            topic,
             record
         });
 
-        if(action === 'destroy') {
+        if (action === 'destroy') {
             return;
         }
 
@@ -47,10 +47,10 @@ class PersistenceApplicationCommand {
          * service/task.
          */
         if (!health) {
+
             /*
              * Check to see if we have a Service for this application.
              */
-
             return Service.find({ application: record.id }).then((services = []) => {
                 /*
                  * if we do, set active=false.
@@ -75,11 +75,11 @@ class PersistenceApplicationCommand {
         /**
          * health.url is a deprecated attribute.
          */
-        if(health.url) {
+        if (health.url) {
             service.endpoint = health.url;
             delete service.url;
         }
-        
+
         /** 
          * Look for a service with the given endpoint.
          */

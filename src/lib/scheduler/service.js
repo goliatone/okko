@@ -7,7 +7,7 @@ const Task = require('./task');
 const defaults = {
     serviceFactory: require('./factory'),
     serviceOptions: {
-        host: '192.168.99.100'
+        host: 'localhost'
     }
 };
 
@@ -23,7 +23,7 @@ class SchedulerService extends EventEmitter {
         this.watchedKey = 'waterline:service:id';
         this.expiredKeyEvents = '__keyevent@0__:expired';
         this.resourceRegex = /^waterline:service:id:(\w+)$/;
-        
+
         this.triggerKeys = `${this.watchedKey}:*`;
         // this.resourceRegex = new RegExp(this.watchedKey + ':\(\\w+\)');
         this.taskEvents = `__key*__:${this.watchedKey}:*`;
@@ -42,7 +42,8 @@ class SchedulerService extends EventEmitter {
      * Register redis event listeners for 
      * expired keys and updates on any
      * waterline:service
-    */
+     * TODO: we need to ensure we have notify-keyspace-events enabled
+     */
     subscribeToKeyEvents() {
 
         // this.pubsub.psubscribe(this.taskEvents);
@@ -50,7 +51,7 @@ class SchedulerService extends EventEmitter {
         this.pubsub.subscribe(`__keyevent@0__:expired`);
         this.pubsub.psubscribe('__key*__:waterline:service:id:*');
 
-        this.pubsub.on('pmessage', (channel, message) => { 
+        this.pubsub.on('pmessage', (channel, message) => {
             //TODO: we could clean this up.
             this.onServiceKeyUpdate(channel, message);
         });
@@ -71,20 +72,20 @@ class SchedulerService extends EventEmitter {
      */
     onTaskExpired(channel, message) {
         const taskId = this._getTaskId(message);
-        if(!taskId) {
+        if (!taskId) {
             return console.log('ignoring task id', taskId);
         }
 
         this.client.get(taskId, (err, serializedTask) => {
-            if(err) {
+            if (err) {
                 return console.error('Error getting task: %s', taskId, err);
             }
             const task = new Task({
                 serializedTask,
                 client: this.client,
             });
-            
-            this.emit('scheduler:task:execute', {task});
+
+            this.emit('scheduler:task:execute', { task });
         });
     }
 
@@ -104,19 +105,19 @@ class SchedulerService extends EventEmitter {
 
         /** 
          * waterline:service:id to scheduler:task:id
-        */
+         */
         const id = this._getIdFromMessage(message);
-        
+
         this.taskFromService(id).then(task => {
-            if(task && task.id) {
-                this.emit('scheduler:task:created', {task, action: 'evented'});
+            if (task && task.id) {
+                this.emit('scheduler:task:created', { task, action: 'evented' });
             }
         });
     }
 
     loadAllServices() {
         // this.client.keys(this.triggerKeys, async (err, result=[]) => {
-        this.client.keys('waterline:service:id:*', async (err, services=[]) => {
+        this.client.keys('waterline:service:id:*', async(err, services = []) => {
             this.startTasksFromServices(services);
         });
     }
@@ -130,9 +131,9 @@ class SchedulerService extends EventEmitter {
              * Retrieve our serialized task for the service id:
              * scheduler:tasks:6
              */
-            this.client.get(taskId, async (err, serializedTask) => {
+            this.client.get(taskId, async(err, serializedTask) => {
                 if (err) return console.error('Error getting task:', err);
-    
+
                 /**
                  * We don't have a task for the service.
                  * Create one.
@@ -141,42 +142,47 @@ class SchedulerService extends EventEmitter {
                     console.log('The service "%s" does not have a task. Create it', id);
                     //waterlineService: waterline:service:id:6
                     return this.taskFromService(waterlineService).then(task => {
-                        if(task && task.id) {
-                            this.emit('scheduler:task:created', {task, action: 'created'});
+                        if (task && task.id) {
+                            this.emit('scheduler:task:created', { task, action: 'created' });
                         }
                     });
                 }
-    
+
                 /**
                  * This service already had a task.
                  * Bring it back up and start running
                  * the task.
                  */
-                let task = new Task({ 
+                let task = new Task({
                     serializedTask,
-                    client: this.client 
+                    client: this.client
                 });
-    
+
                 try {
                     await task.createIfNew();
                 } catch (error) {
                     console.log('ERROR', error);
                 }
 
-                this.emit('scheduler:task:created', {task, action: 'deserialized'});   
+                this.emit('scheduler:task:created', { task, action: 'deserialized' });
             });
         });
     }
 
-    //TODO: rename to createTaskFromService
+    //Deprecated
     taskFromService(taskId) {
+        return this.createTaskFromService(taskId);
+    }
+
+    //Rename to createTaskFromRecord
+    createTaskFromService(taskId) {
         return new Promise((resolve, reject) => {
-            this.client.get(taskId, async (err, service) => {
+            this.client.get(taskId, async(err, service) => {
                 if (err) return reject(err);
-                if(!service) return resolve({found: false, id: taskId});
-    
+                if (!service) return resolve({ found: false, id: taskId });
+
                 service = JSON.parse(service);
-        
+
                 /**
                  * We are matching a service ID
                  * to a task ID. And the data we
@@ -190,13 +196,13 @@ class SchedulerService extends EventEmitter {
                     id: service.id,
                     ttl: service.interval
                 });
-        
+
                 try {
                     await task.createIfNew();
                 } catch (error) {
                     return reject(error);
                 }
-                
+
                 resolve(task);
             });
         });

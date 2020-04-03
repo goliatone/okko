@@ -12,6 +12,7 @@ class ServiceIdInsightsCommand extends CoreCommand {
 
         logger.info('Get insights for service: %s', id);
 
+        //TODO: Make lazy loading...
         const serverIP = process.env.NODE_REDIS_IP || '192.168.99.100';
         const storage = new RedisStorage({
             host: serverIP
@@ -21,7 +22,7 @@ class ServiceIdInsightsCommand extends CoreCommand {
             storage
         });
 
-        return insights.getService({ id }).then((out) => {
+        return insights.getService({ id }).then(out => {
             console.log(JSON.stringify(out, null, 4));
             //This should be handled by base command.
 
