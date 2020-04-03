@@ -23,8 +23,8 @@ class Task {
 
     init(options = {}) {
         extend(this, defaults, options);
-        
-        if(this.serializedTask) {
+
+        if (this.serializedTask) {
             const serializedTask = this.serializedTask;
             delete this.serializedTask;
             this.deserialize(serializedTask);
@@ -63,24 +63,24 @@ class Task {
      * Once we pull a task from our 
      * persistence layer, we need to
      * trigger our TTL expire.
-    */
+     */
     createIfNew() {
         return new Promise((resolve, reject) => {
-            
+
             const _responder = (err, res) => {
-                if(err) reject(err);
+                if (err) reject(err);
                 else resolve(this);
             };
 
-            const {key, id, client, ttl} = this;
-            
+            const { key, id, client, ttl } = this;
+
             const ttlKey = `${key}:ttl`;
 
             //We should check if both exist.
             client.exists(ttlKey, (err, exists) => {
                 if (err) return reject(err);
 
-                if(exists) {
+                if (exists) {
                     console.log('† SET TTL %s %s\n', ttlKey, ttl);
                     this.exists = exists;
                     client.pexpire(ttlKey, ttl, _responder);
@@ -94,8 +94,9 @@ class Task {
             });
         });
     }
+
     commit(ttl) {
-        if(!isNaN(ttl)) {
+        if (!isNaN(ttl)) {
             console.log('TTL', ttl);
             this.ttl = ttl;
         }
@@ -125,8 +126,8 @@ class Task {
         this.expire = value;
     }
 
-    get ttl( ) {
-        if(this.expire instanceof Date) {
+    get ttl() {
+        if (this.expire instanceof Date) {
             this.expire = this.expire.getTime() - Date.now();
         }
 
