@@ -29,6 +29,37 @@ There are two ways we can create a service monitor for an application:
 Usually an Application would have 0/1 services. In some cases we might want to monitor more than one end-point or monitor different transports (mqtt, http).
 
 
+### Registration
+
+Need to **POST** to the `/register` endpoint:
+
+```json
+{ 
+    "server": {
+        "port":9999
+    },
+    "hostname":"peperone.dev",
+    "appId":"bot", 
+    "environment":"development"
+}
+```
+
+coreio applications can include the following in their app config file:
+
+```
+registration: {
+    url: 'http://localhost:9350',
+    data: {
+        server: {
+            port: 9999
+        },
+        hostname: 'goliatone.bot'
+    },
+}
+```
+
+
+
 ### Development 
 
 Fastest way to start is by using docker
@@ -36,7 +67,7 @@ Fastest way to start is by using docker
 #### MQTT
 
 ```
-docker run --name vernemq1 \
+docker run --name vernemq \
   -p 1883:1883 \
   -p 8888:8888 \
   -p 9001:9001 \
@@ -57,6 +88,49 @@ Inside your container you have access to `vmq-admin`:
 $ vmq-admin set allow_anonymous=on
 ```
 
+#### Redis
+
+```
+docker run --name redis \
+    -p 6379:6379 \
+    -v /usr/local/var/db/redis:/data \
+    -d redis
+```
+
+Access container:
+
+```
+$ docker exec -ti 22ff4468c241 redis-cli CONFIG SET notify-keyspace-events AKE
+```
+
+Redis setup:
+
+```
+CONFIG SET notify-keyspace-events AKE
+```
+
+#### MongoDB
+
+
+```
+docker run --name mongo \
+    -p 27017:27017 \
+    -v /usr/local/var/db/mongodb:/data/db \
+    -d mongo
+```
+
+Or with auth:
+```
+docker run --name mongo \
+    -p 27017:27017 \
+    -v /usr/local/var/db/mongodb:/data/db \
+    -e MONGO_INITDB_ROOT_USERNAME=mongoadmin \
+	-e MONGO_INITDB_ROOT_PASSWORD=secret \
+    -d mongo
+```
+
+
+
 ## License
 ® License MIT by goliatone
 
@@ -73,6 +147,8 @@ encoded = urllib.urlencode(params)
 outfile.write(encoded)
 outfile.close()
 ```
+
+envset development -- npm start 
 
 
 <!-- 
